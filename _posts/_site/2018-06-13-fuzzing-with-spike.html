@@ -1,0 +1,118 @@
+<p>There has always been something about buffer overflows that to me has been what hacking is all about. There is something
+magical about sending a string of characters and forcing a system to do your bidding. Hacking in its purest form!</p>
+
+<p>During the next few posts we are going to do just that. We are going to go from discovering a vulnerability all the way 
+to exploit development, starting with a basic vanilla stack overflow (and a few twists), getting fancier with subsequent posts. Having said that, 
+This is not a beginner friendly tutorial - you should have at least a basic grasp of memory layouts (and a very basic 
+grasp of C woudnt hurt!). We are going to be focusing on Intel x86 processors, with a Windows operating system (touching
+on linux at some point…)
+If you havent already, i strongly recommend reading Aleph One’s famous Smashing the stack for fun and profit 
+(http://www-inst.eecs.berkeley.edu/~cs161/fa08/papers/stack_smashing.pdf)</p>
+
+<p>With that out of the way, lets begin! Today we are going to be ‘discovering’ a vulnerability and writing an exploit
+for Easy File Sharing Webserver 7.2. I chose this software because 1) it is a simple remote unauthenticated example
+of a stack overflow and 2) there are a few different ways we can hit this target. I did NOT discover this vulnerability, 
+but we are going to approach it from an 0day angle and write a fuzzer to find it. This will be an overly simplistic approach to fuzzing and 0day discovery but it
+should illustrate the basic steps you need to go through.</p>
+
+<p>If you’d like to follow along, install the above software on a Windows 7 Professional (x86) system. You will also need
+to install a windows debugger. For this post I will use Immunity with the mona.py script. Make sure port 80 is reachable
+from your attacking system.</p>
+
+<p>The first thing we’d wana do is get to know the software. We are looking to find out how it works, what kind of input
+it takes, what protocol it uses, what it does, etc. In this case we know the software is a webserver, so
+we would use a web proxy such as burp and browse the application. Note that any field that takes user input could be a point of interest - It is our job
+to find that one oversight, that one unsanitized or unchecked parameter being passed into system(), strcpy(), sprintf(),
+etc.In the case of a web server, some of the parameters of interest in would be custom headers, cookie
+fields, or any user supplied/controlled data passed to the application.</p>
+
+<p>The particular vulnerability we are going to be exploiting today was found in the following POST request:</p>
+
+<p><code class="highlighter-rouge">POST /sendmail.ghp HTTP/1.1</code><br />
+<code class="highlighter-rouge">Email=test@crash.com&amp;getPassword=Get+Password</code></p>
+
+<p>The <code class="highlighter-rouge">Email</code> and <code class="highlighter-rouge">getPassword</code> parameters look promising, so lets write a tempalte to fuzz these. Fuzzing is the process
+by which we purposely send malformed requests of different input and study how the applciation responds. 
+The fuzzer we are going to use today is the Spike fuzzer. Spike is a great tool which allows us to create templates 
+based on the sort of data we are looking to send. We can then send both TCP or UDP packets containing the malformed data,
+depending on what we are fuzzing. In this case, we are going to send a wide range od strings into the fields above.</p>
+
+<p>The tempalte we will use will look like the one below:</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">s_string</span><span class="p">(</span><span class="s2">"POST /sendmail.ghp HTTP/1.1 </span><span class="se">\r\n</span><span class="s2">"</span><span class="p">);</span>
+<span class="n">s_string</span><span class="p">(</span><span class="s2">"Email="</span><span class="p">);</span>
+<span class="n">s_string_variable</span><span class="p">(</span><span class="s2">"test@crash.com"</span><span class="p">);</span>
+<span class="n">s_string</span><span class="p">(</span><span class="s2">"&amp;getPassword="</span><span class="p">);</span>
+<span class="n">s_string_variable</span><span class="p">(</span><span class="s2">"Get+Password"</span><span class="p">);</span>
+<span class="n">s_string</span><span class="p">(</span><span class="s2">"</span><span class="se">\r\n\r\n</span><span class="s2">"</span><span class="p">);</span>
+</code></pre></div></div>
+<p>Copy paste the above template and save it as EFS.spk. To explain:</p>
+
+<p>The first line, <code class="highlighter-rouge">s_string()</code> sends data of type string that is static. In the above example,, we are sending a POST 
+request to sendmail.ghp.
+If we however wanted to fuzz the POST parameter, or the /sendmail.ghp, we would use the s_string_variable() definition.
+This tells spike which variables we would like to fuzz, and it is here where all the malformed data will be sent.</p>
+
+<p>In the above example we are dealing with strings in an HTTP request. Spike also supports other data types such as binary,
+but for this example we’ll keep it simple and stick to strings.</p>
+
+<p>Ok, now we are ready to test! We are going to use the generic_send_tcp program (part of Spike) as we are going to be sending TCP packets.
+The command’s format is the following:</p>
+
+<p><code class="highlighter-rouge">generic_send_tcp 192.168.56.101 80 EFS.spk 0 0</code></p>
+
+<p>While most of the parameters above should be self explanatory, the last two tell spike which variable and which test
+to start from. In this case we want spike to test all the variables in the tempalte using all the payloads, so we’ll
+start at 0 for both.</p>
+
+<p>On your windows VM, start the Easy File Web Server, and launch Immunity. Attach the process by going to
+file &gt; Attach &gt; fsws &gt; click Attach. You will then need to click the play button above twice to resume program
+execution.</p>
+
+<p>We will also use wireshark to monitor which payloads are sent to the windows machine. With wireshark running,
+it is now time to fuzz the application. Open a separate terminal and launch the fuzzer. We notice that almost
+immediately the application crashes! This looks promising. We stop Spike and look in wireshark to determine which payload
+crashed the application. we see the following:</p>
+
+<p><img src="http://localhost:4000/images/Fuzz/Wireshark-fuzz.png" alt="Wireshark payloads" /></p>
+
+<p>If we look at Spike, it tells us the second request sent a payload of 5004 bytes. Lets explore this crash a bit more and see
+if it is indeed exploitable. Remember that not every crash is exploitable, for a wide variety of reasons.</p>
+
+<p>We will use the following python script as a following baseline for our exploit:</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/usr/bin/python</span>
+
+<span class="n">import</span> <span class="n">socket</span>
+<span class="n">import</span> <span class="n">sys</span>
+
+<span class="k">if</span> <span class="n">len</span><span class="p">(</span><span class="n">sys</span><span class="p">.</span><span class="nf">argv</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+	<span class="nb">print</span> <span class="s2">"Usage: python EFS.py [IP]</span><span class="se">\n</span><span class="s2">"</span>
+	<span class="nb">print</span> <span class="s2">"i.e python  EFS.py 192.168.56.101</span><span class="se">\n</span><span class="s2">"</span>
+	<span class="nb">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="n">crash</span> <span class="o">=</span> <span class="s2">"A"</span> <span class="o">*</span>  <span class="mi">4144</span>
+
+<span class="n">buffer</span>  <span class="o">=</span><span class="s2">"POST /sendmail.ghp HTTP/1.1 </span><span class="se">\r\n</span><span class="s2">"</span> 
+<span class="n">buffer</span> <span class="o">+=</span><span class="s2">"Email="</span> <span class="o">+</span> <span class="n">crash</span> <span class="o">+</span> <span class="s2">"&amp;getPassword=Get+Password"</span>
+
+<span class="no">EFS</span> <span class="o">=</span> <span class="n">socket</span><span class="p">.</span><span class="nf">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="no">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="no">SOCK_STREAM</span><span class="p">)</span>
+<span class="no">EFS</span><span class="p">.</span><span class="nf">connect</span><span class="p">((</span><span class="n">sys</span><span class="p">.</span><span class="nf">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">80</span><span class="p">))</span>
+<span class="no">EFS</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>
+<span class="no">EFS</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>Before we continue, some of you may have noticed I’ve adjusted the payload length to 4144. This was done by playing
+with the buffer length to more easily demonstrate the basics of exploit development. In post number 3 we will come back to the original payload length and 
+cover Safe Exception Handler (SEH) exploit development.</p>
+
+<p>If we fire the above at our server, our application crashes, and immunity shows us the following:</p>
+
+<p><img src="http://localhost:4000/images/Fuzz/immunity-fuzz-crash.png" alt="We have an overwrite" /></p>
+
+<p>Success! it looks like we found a pretty straight forward exploitable flaw.</p>
+
+<p>In the next post, we will cover exploit development for this particular vulnerability, using the above skeleton exploit
+as a starting point.</p>
+

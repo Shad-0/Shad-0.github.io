@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+
+  <title>Gaining a foothold: LyncSmash && Linkedin2username</title>
+  <meta name="description" content="In this blog I am going to cover some little known tools that have proven extremely valuable when breaching the perimeter during external engagements. I think most penetration testers will agree that in the 
+majority of cases, the perimeter is rarely breached with CVE’s (although one still finds the odd lone forgotten server at some obsuce subdomain). Instead of attacking the technologies at the different
+endpoints, I prefer to attack the weakest link in the security chain: Humans. Wether it is through social engineering, phishing, or password attacks, humans tend to be the easiest to exploit.
+
+">
+  <meta name="author" content="Shad0">
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Gaining a foothold: LyncSmash && Linkedin2username">
+  <meta name="twitter:description" content="In this blog I am going to cover some little known tools that have proven extremely valuable when breaching the perimeter during external engagements. I think most penetration testers will agree that in the 
+majority of cases, the perimeter is rarely breached with CVE’s (although one still finds the odd lone forgotten server at some obsuce subdomain). Instead of attacking the technologies at the different
+endpoints, I prefer to attack the weakest link in the security chain: Humans. Wether it is through social engineering, phishing, or password attacks, humans tend to be the easiest to exploit.
+
+">
+  
+  <meta name="twitter:image" content="/images/favicons/favicon-194x194.png" />
+
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Gaining a foothold: LyncSmash && Linkedin2username">
+  <meta property="og:description" content="In this blog I am going to cover some little known tools that have proven extremely valuable when breaching the perimeter during external engagements. I think most penetration testers will agree that in the 
+majority of cases, the perimeter is rarely breached with CVE’s (although one still finds the odd lone forgotten server at some obsuce subdomain). Instead of attacking the technologies at the different
+endpoints, I prefer to attack the weakest link in the security chain: Humans. Wether it is through social engineering, phishing, or password attacks, humans tend to be the easiest to exploit.
+
+">
+  <meta property="og:image" content="/images/favicons/favicon-194x194.png" />
+
+  <link rel="apple-touch-icon" sizes="57x57" href="/images/favicons/apple-touch-icon-57x57.png">
+  <link rel="apple-touch-icon" sizes="60x60" href="/images/favicons/apple-touch-icon-60x60.png">
+  <link rel="apple-touch-icon" sizes="72x72" href="/images/favicons/apple-touch-icon-72x72.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicons/apple-touch-icon-76x76.png">
+  <link rel="apple-touch-icon" sizes="114x114" href="/images/favicons/apple-touch-icon-114x114.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="/images/favicons/apple-touch-icon-120x120.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="/images/favicons/apple-touch-icon-144x144.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/images/favicons/apple-touch-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicons/apple-touch-icon-180x180.png">
+  <link rel="icon" type="image/png" href="/images/favicons/favicon-32x32.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="/images/favicons/favicon-194x194.png" sizes="194x194">
+  <link rel="icon" type="image/png" href="/images/favicons/favicon-96x96.png" sizes="96x96">
+  <link rel="icon" type="image/png" href="/images/favicons/android-chrome-192x192.png" sizes="192x192">
+  <link rel="icon" type="image/png" href="/images/favicons/favicon-16x16.png" sizes="16x16">
+  <link rel="manifest" href="/images/favicons/manifest.json">
+  <link rel="shortcut icon" href="/images/favicons/favicon.ico">
+  <meta name="msapplication-TileColor" content="#ffc40d">
+  <meta name="msapplication-TileImage" content="/images/favicons/mstile-144x144.png">
+  <meta name="theme-color" content="#ffffff">
+  
+  <link rel="stylesheet" href="/css/main.css?1534167001640742131">
+  <link rel="canonical" href="http://localhost:4000/2018/Gaining-a-Foothold/">
+  <link rel="alternate" type="application/rss+xml" title="Shad0's House" href="/feed.xml">
+</head>
+
+
+  <body>
+    <span class="mobile btn-mobile-menu">
+  <i class="icon icon-list btn-mobile-menu__icon"></i>
+  <i class="icon icon-x-circle btn-mobile-close__icon hidden"></i>
+</span>
+
+<header class="panel-cover" style="background-image: url(/images/cover.jpg)">
+  <div class="panel-main">
+
+    <div class="panel-main__inner panel-inverted">
+    <div class="panel-main__content">
+        <a href="/" title="link to home of Shad0's House">
+          <img src="/images/profile.jpg" class="user-image" alt="My Profile Photo">
+          <h1 class="panel-cover__title panel-title">Shad0's House</h1>
+        </a>
+        <hr class="panel-cover__divider">
+        <p class="panel-cover__description">Security enthusiast. Penetration tester. Adrenaline junky.</p>
+        <hr class="panel-cover__divider panel-cover__divider--secondary">
+
+        <div class="navigation-wrapper">
+
+          <nav class="cover-navigation cover-navigation--primary">
+            <ul class="navigation">
+              <li class="navigation__item"><a href="/#blog" title="link to Shad0's House blog" class="blog-button">Blog</a></li>
+            </ul>
+          </nav>
+
+          <nav class="cover-navigation navigation--social">
+            <ul class="navigation">
+
+            
+
+            
+
+            
+
+            
+              <!-- GitHub -->
+              <li class="navigation__item">
+                <a href="https://www.github.com/Shad-0" title="Shad-0 on GitHub" target="_blank">
+                  <i class="icon icon-social-github"></i>
+                  <span class="label">GitHub</span>
+                </a>
+              </li>
+            
+
+            
+
+            <!-- RSS -->
+            <li class="navigation__item">
+              <a href="/feed.xml" title="Subscribe" target="_blank">
+                <i class="icon icon-rss"></i>
+                <span class="label">RSS</span>
+              </a>
+            </li>
+
+            </ul>
+          </nav>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="panel-cover--overlay"></div>
+  </div>
+</header>
+
+
+    <div class="content-wrapper">
+      <div class="content-wrapper__inner">
+        <article class="post-container post-container--single">
+  <header class="post-header">
+    <div class="post-meta">
+      <time datetime="2018-06-10 15:04" class="post-meta__date date">10 Jun 2018</time>
+      
+      &#8226; <span class="post-meta__tags">on <a href="/tags/#OSINT,">OSINT,</a> <a href="/tags/#External,">External,</a> <a href="/tags/#Lync,">Lync,</a> <a href="/tags/#Foothold,">Foothold,</a> <a href="/tags/#Enumeration,">Enumeration,</a> <a href="/tags/#Skype">Skype</a> <a href="/tags/#for">for</a> <a href="/tags/#business">business</a> </span>
+      
+    </div>
+    <h1 class="post-title">Gaining a foothold: LyncSmash && Linkedin2username</h1>
+  </header>
+
+  <section class="post">
+    <p>In this blog I am going to cover some little known tools that have proven extremely valuable when breaching the perimeter during external engagements. I think most penetration testers will agree that in the 
+majority of cases, the perimeter is rarely breached with CVE’s (although one still finds the odd lone forgotten server at some obsuce subdomain). Instead of attacking the technologies at the different
+endpoints, I prefer to attack the weakest link in the security chain: Humans. Wether it is through social engineering, phishing, or password attacks, humans tend to be the easiest to exploit.</p>
+
+<p>A few weeks ago I was on an external engagement against a fairly large company. Initial recogniance revealed many interesting subdomains, however most were placed behind an authenticated gateway, meaning I could
+not reach them without valid credentials. This severely reduced my attack surface which was slightly annoying. Initially, the only two exposed servers I could access was a fairly new exchange server with no exploitable
+vulnerabilities and a 2013 Microsoft Lync server. One possible attack here would be to come up with a list of probable usernames using the email convention from my point of contact and perform a password spray 
+against the Lync server, however first i’d need a list of employees to try.</p>
+
+<p><img src="http://localhost:4000/images/Lync/lync" alt="Always a welcome sight on externals" /></p>
+
+<p>A few months ago, a colleague of mine released a tool called <a href="https://gitlab.com/initstring/linkedin2username/">Linkedin2username</a>. The tool is a scraper that will take in a company name, and login 
+parameters. It will then log into LinkedIn and do a search for all employees of said company, which it then saves locally. Finally, it will grab the first and last name and compose a  list of probable usernames 
+using common email conventions such as firstname.lastname, lastname.f, firstname.l and so on. This is incredibly useful when used in conjuction with username enumeration flaws, as it provides a very 
+comprehensive list of posible usernames we can then attack.</p>
+
+<p>I ran the tool against the company which identified roughly 700 users. Awesome! Although there were bound to be some invalid or old names in there, I figured most would be valid, and felt pretty good
+about my chances of finding a user with Password1, Winter2018 or something of the sort. Rather than attempting all different convetions (over 2000 usernames), I decided to use the convention from emails found
+during recon.</p>
+
+<p>The last piece needed for my attack was the domain the users belonged to. This is where Lyncsmash comes in. <a href="https://github.com/nyxgeek/lyncsmash">LyncSmash</a> developed by nyxgeek is a collection of tools for attacking self hosted
+Microsoft Lync installations. If you’d like to read the details behind how it works I strongly suggest you read <a href="https://www.trustedsec.com/2017/08/attacking-self-hosted-skype-businessmicrosoft-lync-installations/">this</a> blog post.
+Self hosted Lync installations suffer from multiple information disclosure flaws. First, many folders are protected with NTLM over http authentication. This means if we send an authentication request with null 
+credentials, we will receive a <a href="https://blog.gdssecurity.com/labs/2014/2/12/http-ntlm-information-disclosure.html">NTLMSSP</a> message, which leaks Netbios, DNS and host information.</p>
+
+<p>It is worth noting here that this is not a vulnerability, but rather a flaw design in the protocol so this will likely never be fixed. I used the http-ntlm-info nmap script to enumerate the server, 
+using the /abs/ directory as the authentication target:</p>
+
+<p><img src="http://localhost:4000/images/Lync/nmap" alt="Nmap script results against /abs/" /></p>
+
+<p>Great! I now had the domain information. The second information disclosure flaw is a username enumeration flaw. Attempting to login with a valid username will return a response much quicker than an invalid 
+username. This flaw was reported to Microsoft, who do not aknowledge it as a vulnerability, meaning it is likely never going to be patched.</p>
+
+<p>At this point I had everything needed for my attack. I used the list produced by LinkedIn2username that conformed to the email convention for the target, and sprayed two passwords across all accounts. 
+If the password lockout threshold of the target is not known, I strongly recommend keeping the spray at 1/2 passwords per day. Otherwise you risk locking out the valid accounts, which will not only be extremely
+noisy but can also have a significant business impact for the target. You’ve been warned.</p>
+
+<p>Invalid usernames with the incorrect credentials will produce the following output:</p>
+
+<p><img src="http://localhost:4000/images/Lync/invalid" alt="No succesfull logins here!" /></p>
+
+<p>Where as a correct login will produce the following result:</p>
+
+<p><img src="http://localhost:4000/images/Lync/valid.png" alt="And we score!!" /></p>
+
+<p>Booya! valid creds! I let the script continue and ended up with 4 valid accounts. Great, now to log in to the portal….</p>
+
+<p><img src="http://localhost:4000/images/Lync/modded" alt="So close but yet so far..." /></p>
+
+<p>After logging I was greeted with a lovely 2FA input field asking me for a Google authenticator token. hmmm. Game over? Not yet! Remember that exchange server that was exposed?
+I took my credentials there and what do you know, no MFA! All of the accounts enumerated were a goldmine. One belonged to someone in a manager type role, who appeared to get automated emails every time
+a new employee was hired. In those emails were details about the employees start date, instructions to set up their Google 2FA aaand…</p>
+
+<p><img src="http://localhost:4000/images/Lync/email" alt="Yep...temporary plaintext credentials" /></p>
+
+<p>I picked a few accounts that had not started yet and therefore were not set up and proceeded to hijack their 2FA set up. I was succesfull in registering my device, and was able to use a few of the newly 
+hijacked accounts to access the companies intranet and external resources. From here it was simply a matter of more enumeration until I was able to VPN into their internal network. Game over.</p>
+
+<p>I hope the above post highlights the power of these two tools when used together, and how dangerous a simple information disclosure flaw can be to an organization under the right conditions.</p>
+
+<p>Thanks for reading!</p>
+
+
+  </section>
+  
+</article>
+
+
+
+      </div>
+
+      <footer class="footer">
+  <span class="footer__copyright">&copy; 2018 Shad0. All rights reserved.</span>
+</footer>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script type="text/javascript" src="/js/main.js?1534167001640742131"></script>
+
+
+    </div>
+  </body>
+</html>
