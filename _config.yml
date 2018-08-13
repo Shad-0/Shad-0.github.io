@@ -1,7 +1,7 @@
 # Site settings
 title: Shad0's House
 description: 'Security enthusiast. Penetration tester. Adrenaline junky.'
-url: 'http://shad0.io'
+url: 'https://shad0.io'
 baseurl: ''
 #baseurl: '/jekyll-uno'
 # google_analytics: 'UA-XXXXXX-X'

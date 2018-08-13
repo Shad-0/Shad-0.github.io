@@ -14,7 +14,7 @@ not reach them without valid credentials. This severely reduced my attack surfac
 vulnerabilities and a 2013 Microsoft Lync server. One possible attack here would be to come up with a list of probable usernames using the email convention from my point of contact and perform a password spray 
 against the Lync server, however first i'd need a list of employees to try.
 
-![Always a welcome sight on externals]({{ "/images/Lync/lync" | absolute_url }})
+![Always a welcome sight on externals]({{ "/images/Lync/lync.png" | absolute_url }})
 
 A few months ago, a colleague of mine released a tool called [Linkedin2username](https://gitlab.com/initstring/linkedin2username/). The tool is a scraper that will take in a company name, and login 
 parameters. It will then log into LinkedIn and do a search for all employees of said company, which it then saves locally. Finally, it will grab the first and last name and compose a  list of probable usernames 
