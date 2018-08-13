@@ -58,7 +58,7 @@ endpoints, I prefer to attack the weakest link in the security chain: Humans. We
   <meta name="msapplication-TileImage" content="/images/favicons/mstile-144x144.png">
   <meta name="theme-color" content="#ffffff">
   
-  <link rel="stylesheet" href="/css/main.css?1534167001640742131">
+  <link rel="stylesheet" href="/css/main.css?1534167992506886019">
   <link rel="canonical" href="http://localhost:4000/2018/Gaining-a-Foothold/">
   <link rel="alternate" type="application/rss+xml" title="Shad0's House" href="/feed.xml">
 </head>
@@ -157,7 +157,7 @@ not reach them without valid credentials. This severely reduced my attack surfac
 vulnerabilities and a 2013 Microsoft Lync server. One possible attack here would be to come up with a list of probable usernames using the email convention from my point of contact and perform a password spray 
 against the Lync server, however first i’d need a list of employees to try.</p>
 
-<p><img src="http://localhost:4000/images/Lync/lync" alt="Always a welcome sight on externals" /></p>
+<p><img src="http://localhost:4000/images/Lync/lync.png" alt="Always a welcome sight on externals" /></p>
 
 <p>A few months ago, a colleague of mine released a tool called <a href="https://gitlab.com/initstring/linkedin2username/">Linkedin2username</a>. The tool is a scraper that will take in a company name, and login 
 parameters. It will then log into LinkedIn and do a search for all employees of said company, which it then saves locally. Finally, it will grab the first and last name and compose a  list of probable usernames 
@@ -176,7 +176,7 @@ credentials, we will receive a <a href="https://blog.gdssecurity.com/labs/2014/2
 <p>It is worth noting here that this is not a vulnerability, but rather a flaw design in the protocol so this will likely never be fixed. I used the http-ntlm-info nmap script to enumerate the server, 
 using the /abs/ directory as the authentication target:</p>
 
-<p><img src="http://localhost:4000/images/Lync/nmap" alt="Nmap script results against /abs/" /></p>
+<p><img src="http://localhost:4000/images/Lync/nmap.png" alt="Nmap script results against /abs/" /></p>
 
 <p>Great! I now had the domain information. The second information disclosure flaw is a username enumeration flaw. Attempting to login with a valid username will return a response much quicker than an invalid 
 username. This flaw was reported to Microsoft, who do not aknowledge it as a vulnerability, meaning it is likely never going to be patched.</p>
@@ -187,7 +187,7 @@ noisy but can also have a significant business impact for the target. You’ve b
 
 <p>Invalid usernames with the incorrect credentials will produce the following output:</p>
 
-<p><img src="http://localhost:4000/images/Lync/invalid" alt="No succesfull logins here!" /></p>
+<p><img src="http://localhost:4000/images/Lync/invalid.png" alt="No succesfull logins here!" /></p>
 
 <p>Where as a correct login will produce the following result:</p>
 
@@ -195,13 +195,13 @@ noisy but can also have a significant business impact for the target. You’ve b
 
 <p>Booya! valid creds! I let the script continue and ended up with 4 valid accounts. Great, now to log in to the portal….</p>
 
-<p><img src="http://localhost:4000/images/Lync/modded" alt="So close but yet so far..." /></p>
+<p><img src="http://localhost:4000/images/Lync/modded.png" alt="So close but yet so far..." /></p>
 
 <p>After logging I was greeted with a lovely 2FA input field asking me for a Google authenticator token. hmmm. Game over? Not yet! Remember that exchange server that was exposed?
 I took my credentials there and what do you know, no MFA! All of the accounts enumerated were a goldmine. One belonged to someone in a manager type role, who appeared to get automated emails every time
 a new employee was hired. In those emails were details about the employees start date, instructions to set up their Google 2FA aaand…</p>
 
-<p><img src="http://localhost:4000/images/Lync/email" alt="Yep...temporary plaintext credentials" /></p>
+<p><img src="http://localhost:4000/images/Lync/email.png" alt="Yep...temporary plaintext credentials" /></p>
 
 <p>I picked a few accounts that had not started yet and therefore were not set up and proceeded to hijack their 2FA set up. I was succesfull in registering my device, and was able to use a few of the newly 
 hijacked accounts to access the companies intranet and external resources. From here it was simply a matter of more enumeration until I was able to VPN into their internal network. Game over.</p>
@@ -224,7 +224,7 @@ hijacked accounts to access the companies intranet and external resources. From 
 </footer>
 
 <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-<script type="text/javascript" src="/js/main.js?1534167001640742131"></script>
+<script type="text/javascript" src="/js/main.js?1534167992506886019"></script>
 
 
     </div>

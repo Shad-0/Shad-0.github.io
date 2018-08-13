@@ -5,8 +5,8 @@
     <description>Security enthusiast. Penetration tester. Adrenaline junky.</description>
     <link>http://localhost:4000/</link>
     <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Mon, 13 Aug 2018 23:30:01 +1000</pubDate>
-    <lastBuildDate>Mon, 13 Aug 2018 23:30:01 +1000</lastBuildDate>
+    <pubDate>Mon, 13 Aug 2018 23:46:32 +1000</pubDate>
+    <lastBuildDate>Mon, 13 Aug 2018 23:46:32 +1000</lastBuildDate>
     <generator>Jekyll v3.6.2</generator>
     
       <item>
@@ -20,7 +20,7 @@ not reach them without valid credentials. This severely reduced my attack surfac
 vulnerabilities and a 2013 Microsoft Lync server. One possible attack here would be to come up with a list of probable usernames using the email convention from my point of contact and perform a password spray 
 against the Lync server, however first i’d need a list of employees to try.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/lync&quot; alt=&quot;Always a welcome sight on externals&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/lync.png&quot; alt=&quot;Always a welcome sight on externals&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;A few months ago, a colleague of mine released a tool called &lt;a href=&quot;https://gitlab.com/initstring/linkedin2username/&quot;&gt;Linkedin2username&lt;/a&gt;. The tool is a scraper that will take in a company name, and login 
 parameters. It will then log into LinkedIn and do a search for all employees of said company, which it then saves locally. Finally, it will grab the first and last name and compose a  list of probable usernames 
@@ -39,7 +39,7 @@ credentials, we will receive a &lt;a href=&quot;https://blog.gdssecurity.com/lab
 &lt;p&gt;It is worth noting here that this is not a vulnerability, but rather a flaw design in the protocol so this will likely never be fixed. I used the http-ntlm-info nmap script to enumerate the server, 
 using the /abs/ directory as the authentication target:&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/nmap&quot; alt=&quot;Nmap script results against /abs/&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/nmap.png&quot; alt=&quot;Nmap script results against /abs/&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;Great! I now had the domain information. The second information disclosure flaw is a username enumeration flaw. Attempting to login with a valid username will return a response much quicker than an invalid 
 username. This flaw was reported to Microsoft, who do not aknowledge it as a vulnerability, meaning it is likely never going to be patched.&lt;/p&gt;
@@ -50,7 +50,7 @@ noisy but can also have a significant business impact for the target. You’ve b
 
 &lt;p&gt;Invalid usernames with the incorrect credentials will produce the following output:&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/invalid&quot; alt=&quot;No succesfull logins here!&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/invalid.png&quot; alt=&quot;No succesfull logins here!&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;Where as a correct login will produce the following result:&lt;/p&gt;
 
@@ -58,13 +58,13 @@ noisy but can also have a significant business impact for the target. You’ve b
 
 &lt;p&gt;Booya! valid creds! I let the script continue and ended up with 4 valid accounts. Great, now to log in to the portal….&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/modded&quot; alt=&quot;So close but yet so far...&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/modded.png&quot; alt=&quot;So close but yet so far...&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;After logging I was greeted with a lovely 2FA input field asking me for a Google authenticator token. hmmm. Game over? Not yet! Remember that exchange server that was exposed?
 I took my credentials there and what do you know, no MFA! All of the accounts enumerated were a goldmine. One belonged to someone in a manager type role, who appeared to get automated emails every time
 a new employee was hired. In those emails were details about the employees start date, instructions to set up their Google 2FA aaand…&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/email&quot; alt=&quot;Yep...temporary plaintext credentials&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/email.png&quot; alt=&quot;Yep...temporary plaintext credentials&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;I picked a few accounts that had not started yet and therefore were not set up and proceeded to hijack their 2FA set up. I was succesfull in registering my device, and was able to use a few of the newly 
 hijacked accounts to access the companies intranet and external resources. From here it was simply a matter of more enumeration until I was able to VPN into their internal network. Game over.&lt;/p&gt;

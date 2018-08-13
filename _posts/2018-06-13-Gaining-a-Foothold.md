@@ -33,7 +33,7 @@ credentials, we will receive a [NTLMSSP](https://blog.gdssecurity.com/labs/2014/
 It is worth noting here that this is not a vulnerability, but rather a flaw design in the protocol so this will likely never be fixed. I used the http-ntlm-info nmap script to enumerate the server, 
 using the /abs/ directory as the authentication target:
 
-![Nmap script results against /abs/]({{ "/images/Lync/nmap" | absolute_url }})
+![Nmap script results against /abs/]({{ "/images/Lync/nmap.png" | absolute_url }})
 
 Great! I now had the domain information. The second information disclosure flaw is a username enumeration flaw. Attempting to login with a valid username will return a response much quicker than an invalid 
 username. This flaw was reported to Microsoft, who do not aknowledge it as a vulnerability, meaning it is likely never going to be patched.
@@ -44,7 +44,7 @@ noisy but can also have a significant business impact for the target. You've bee
 
 Invalid usernames with the incorrect credentials will produce the following output:
 
-![No succesfull logins here!]({{ "/images/Lync/invalid" | absolute_url }})
+![No succesfull logins here!]({{ "/images/Lync/invalid.png" | absolute_url }})
 
 Where as a correct login will produce the following result:
 
@@ -52,13 +52,13 @@ Where as a correct login will produce the following result:
 
 Booya! valid creds! I let the script continue and ended up with 4 valid accounts. Great, now to log in to the portal....
 
-![So close but yet so far...]({{ "/images/Lync/modded" | absolute_url }})
+![So close but yet so far...]({{ "/images/Lync/modded.png" | absolute_url }})
 
 After logging I was greeted with a lovely 2FA input field asking me for a Google authenticator token. hmmm. Game over? Not yet! Remember that exchange server that was exposed?
 I took my credentials there and what do you know, no MFA! All of the accounts enumerated were a goldmine. One belonged to someone in a manager type role, who appeared to get automated emails every time
 a new employee was hired. In those emails were details about the employees start date, instructions to set up their Google 2FA aaand...
 
-![Yep...temporary plaintext credentials]({{ "/images/Lync/email" | absolute_url }})
+![Yep...temporary plaintext credentials]({{ "/images/Lync/email.png" | absolute_url }})
 
 I picked a few accounts that had not started yet and therefore were not set up and proceeded to hijack their 2FA set up. I was succesfull in registering my device, and was able to use a few of the newly 
 hijacked accounts to access the companies intranet and external resources. From here it was simply a matter of more enumeration until I was able to VPN into their internal network. Game over.
