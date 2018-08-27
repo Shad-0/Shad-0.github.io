@@ -2,7 +2,7 @@
 title:  "Stack Overflow with a twist"
 date:   2018-04-12 15:04:23
 categories: BoF, Fuzzing
-tags: BoF, Fuzzing, Spike
+tags: BoF, Stack overflow, EggHunter, Shellcode
 ---
 In the following post I will conver very basic Windows x86 Stack overflow exploit development. This is a continuation of our Fuzzing post, and the starting point will be the PoC covered then.
 
@@ -123,7 +123,7 @@ EFS.connect((sys.argv[1], 80))
 EFS.send(buffer)
 EFS.close()
 ```
-When we run it, our application crashes, and immediately we can see that our EIP contains \x43\x43\x42\x42. Seeing as the payload lengths are the same, we can already see some characters got mangled in the stack.
+When we run it, our application crashes, and immediately we can see that our EIP contains ```\x43\x43\x42\x42```. Seeing as the payload lengths are the same, we can already see some characters got mangled in the stack.
 If we examine the stack we can see that ```\x25\x26\x27\x2b``` where either ommitted or replaced by another character. Lets take these out of our bad char buffer and send the payload again.
 
 Great, examining our buffer we see that once again our EIP is overwritten with B's and our stack contains all the characters sent.

