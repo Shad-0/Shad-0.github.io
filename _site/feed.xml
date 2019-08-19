@@ -5,14 +5,14 @@
     <description>Security enthusiast. Penetration tester. Adrenaline junky.</description>
     <link>http://localhost:4000/</link>
     <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Tue, 28 Aug 2018 01:02:03 +1000</pubDate>
-    <lastBuildDate>Tue, 28 Aug 2018 01:02:03 +1000</lastBuildDate>
-    <generator>Jekyll v3.6.2</generator>
+    <pubDate>Tue, 20 Aug 2019 09:15:38 +1000</pubDate>
+    <lastBuildDate>Tue, 20 Aug 2019 09:15:38 +1000</lastBuildDate>
+    <generator>Jekyll v3.8.5</generator>
     
       <item>
         <title>No Responder? No problem! - Abusing HTML and UNC</title>
-        <description>&lt;p&gt;When I first began learning about IT security, AV evasion meant encoding signatures, and &lt;code class=&quot;highlighter-rouge&quot;&gt;' OR '1' = '1&lt;/code&gt; was enough to get into most web applications. 14 years later, security has evolved into a much different
-landscape. While the above techniques certainly still work in some cases, today’s networks are much more complex. AV’s now have sandboxes and emulators, and web applications are protected on the 7th layer.
+        <description>&lt;p&gt;When I first began my dive into the world of IT security, AV evasion meant encoding signatures, and &lt;code class=&quot;highlighter-rouge&quot;&gt;' OR '1' = '1&lt;/code&gt; was enough to get into most web applications. 15 years later, security has evolved into a 
+much different landscape. While the above techniques certainly still work in some cases, today’s networks are much more complex. AV’s now have sandboxes and emulators, and web applications are protected at the applicaton layer.
 The last thing a consultant wants during an engagement is to be caught because one of their payloads tripped a defense mechanism.&lt;/p&gt;
 
 &lt;p&gt;A few months ago I was part of a purple team engagement, during which a client hired us to both test their internal network security as well as their newly hired SOC’s ability to catch malicious activity.
@@ -21,7 +21,7 @@ approach.&lt;/p&gt;
 
 &lt;h3 id=&quot;1-getting-credentials-responder-maybe-not&quot;&gt;1. Getting credentials: Responder? Maybe not.&lt;/h3&gt;
 &lt;p&gt;After a quick kickoff meeting we were off. Normally, in a regular internal penetration test this is where I would fire up wireshark and start listening for NBT-NS and LLMNR broadcasts. If found, fire up Responder,
-collect some Net-NTLM hashes, throw hashcat at them and in some cases, r00t dance. However, we figured this would likely get us caught. To explain why, lets go back to how and why Responder works. I am not going to go
+collect some Net-NTLM hashes, throw hashcat at them and in some cases, r00t dance. This approach however would likely get us caught. To explain why, lets go back to how and why Responder works. I am not going to go
 into the details of Responder and NBT-NS/LLMNR poisoning as the internet is filled with explanations of the attack. Suffice to say that when DNS fails to resolve a hostname for whatever reason 
 (user “fat fingers” the name, DNS UDP packet - yes, &lt;a href=&quot;https://www.ietf.org/rfc/rfc1035.txt&quot;&gt;UDP&lt;/a&gt; - gets dropped, or some other reason) it turns back to Link Layer Multicast Name Resolution and NetBios name
 service to resolve the name. It does this by sending a broadcast literally asking who the host is.&lt;/p&gt;
@@ -44,7 +44,7 @@ were to broadcast someting that it knows is not present in the network like \\th
 page. A quick look revealed it was running WordPress, which meant if we could just get access to an account we could probably get code execution. Again, a vulnerability
 scanner like WPScan would have been great here, but as stealth was important we opted for a manual approach. Examination revealed a fully patched installation, and looking through some of the source 
 we saw references to a security plugin which made things a bit harder. We had two options. Either find an 0day in a plugin/Wordpress, which in a time boxed engagement is basically a no go, or compromise a user account.
-Wordpress has a very handy feature that allows for username enumeration by appending &lt;code class=&quot;highlighter-rouge&quot;&gt;/?author=1&lt;/code&gt; to the url. We tested this in the browser and succesfully got the username of the first account.
+Wordpress has a very handy feature that allows for username enumeration by appending &lt;code class=&quot;highlighter-rouge&quot;&gt;/?author=number&lt;/code&gt; to the url. We tested this in the browser and succesfully got the username of the first account.
 We then scripted the attack, being mindful of pausing a few minutes between requests, and tried enumerating the first 100 accounts. This yielded 76 different user accounts. We then tried a password spray with
 good ol’ &lt;code class=&quot;highlighter-rouge&quot;&gt;Password1&lt;/code&gt; (you’d be surprised how many times that works) and success! 4 accounts went down, one of which was an administrator.&lt;/p&gt;
 
@@ -107,8 +107,9 @@ hour.&lt;/p&gt;
 
 &lt;h3 id=&quot;pwning-the-domain-red-team-1-blue-team-0&quot;&gt;Pwning the Domain: Red team 1, Blue team 0&lt;/h3&gt;
 
-&lt;p&gt;With plenty of hashes, the next step was to crack them and begin moving laterally. Hashcat cracked roughly 20 accounts in a relatively short period of time. Checking these account’s permissions we discovered
-that none had elevated privileges. No matter, with domain credentials its usually only a matter of time before the domain goes down. Remembering the SOC’s watchfull eyes over us, we kept our recognizance
+&lt;p&gt;With plenty of hashes, the next step was to crack them and begin moving laterally. Note we could have also relayed the hashes, but as we were opting to be as quiet as possible, we decided to crack them offline instead.
+Hashcat cracked roughly 20 accounts in a relatively short period of time. Checking these account’s permissions we discovered
+that none had elevated privileges. No matter, with domain credentials its usually only a matter of time before the domain goes down. Remembering the SOC’s watchfull eyes over us, we kept our reconnaissance
 to a minimum to prevent tripping any alert from monitoring systems. Instead, we opted for what are considered easy kills, which meant Kerberoasting.&lt;/p&gt;
 
 &lt;p&gt;Kerberoasting is the name of the attack given by &lt;a href=&quot;https://files.sans.org/summit/hackfest2014/PDFs/Kicking%20the%20Guard%20Dog%20of%20Hades%20-%20Attacking%20Microsoft%20Kerberos%20%20-%20Tim%20Medin(1).pdf&quot;&gt;Tim Medina in 2014&lt;/a&gt; to attacking Microsoft Windows Kerberos authentication. 
@@ -117,23 +118,22 @@ While a full description is out of scope, The following graphic taken from &lt;a
 &lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/responder/kerberos.gif&quot; alt=&quot;Kerberos&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;To summarize the above, at logon, the client contacts the Key Distribution Center (KDC) and requests a Ticket Ticket Grating Ticket (TGT) from the KDC. The KDC valdiates the users information, such as 
-permissions and group memberships, and if they check out it will issue a TGT. If the user then wishes to access a service, it will need to supply the TGT as well as the target’s service principal
-name (SPN). A SPN &lt;a href=&quot;https://social.technet.microsoft.com/wiki/contents/articles/717.service-principal-names-spns-setspn-syntax-setspn-exe.aspx&quot;&gt;is the name by which a Kerberos client uniquely identifies an instance of a service for a given Kerberos target computer&lt;/a&gt;
-After verifying the data in the TGT (which only the KDC can read). the KDC will issue a TGS back to the client which &lt;em&gt;is signed with the target SPN’s NTLM hash&lt;/em&gt;. The TGS will then be presented to the service, 
+permissions and group memberships, and if they check out it will return a TGT. If the user then wishes to access a service, it will need to supply the TGT as well as the target’s service principal
+name (SPN). A SPN &lt;a href=&quot;https://social.technet.microsoft.com/wiki/contents/articles/717.service-principal-names-spns-setspn-syntax-setspn-exe.aspx&quot;&gt;is the name by which a Kerberos client uniquely identifies an instance of a service for a given Kerberos target computer.&lt;/a&gt;
+After verifying the data in the TGT (which only the KDC can read) the KDC will issue a TGS back to the client which &lt;em&gt;is signed with the target SPN’s NT hash&lt;/em&gt;. The TGS will then be presented to the service, 
 which will ultimately decide whether or not to provide access.&lt;/p&gt;
 
 &lt;p&gt;We are interested in step 3/4. In modern systems, Kerberos uses AES encryption to encrypt the TGS ticket. However, this was not introduced until &lt;a href=&quot;https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-vista/cc749438(v=ws.10)&quot;&gt;Windows Vista/ and Windows 2008&lt;/a&gt;. 
-Since Active Directory’s introduction in Windows 2000, Windows has used RC4_HMAC symmetric encryption which uses the target SPN’s NT (or NTLM as some of you may know it)
-hash as the encryption/decryption key! Even though AES is the default, RC4 is still found due to
-compatability requriements (since some services/systems do not yet support AES). If we look at the graffic above, any user can request a TGT from the KDC with valid domain credentials.
+Since Active Directory’s introduction in Windows 2000, Windows has used RC4_HMAC symmetric encryption which uses the target SPN’s NT hash as the encryption/decryption key! Even though AES is the default, RC4 is 
+still found due to compatability requriements (since some services/systems do not yet support AES). If we look at the graphic above, any user can request a TGT from the KDC with valid domain credentials.
 These do not have to belong to any privileged group - Kerberos lets the target service/system decide whether or not to grant permission to the user to use the service - which means any low privilege account can
 get as many TGS tickets for different SPN’s as we want! There are certain restrictions in regards to which SPN’s are better for cracking and why, and if you’d like to know more I strongly recommend going &lt;a href=&quot;https://files.sans.org/summit/hackfest2014/PDFs/Kicking%20the%20Guard%20Dog%20of%20Hades%20-%20Attacking%20Microsoft%20Kerberos%20%20-%20Tim%20Medin(1).pdf&quot;&gt;here&lt;/a&gt;
 and &lt;a href=&quot;https://adsecurity.org/?p=2293&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
 
-&lt;p&gt;Cool, so how does this help us? Well, the accounts created for services are usually over permissioned and part of the Domain Admin’s group, as well as have passwords that are set to not expire, usually created
-by a human (which as we know are horrible at creating truly random passwords). This means if we request TGS tickets encrypted with RC4 for a specific (or all available) SPN’s, we can then attempt to open the tickets
-by computing various NTHashes and trying to open the ticket. If we are succesful, it means we have the correct NTHash, which means we would have found the correct password for the target service account!
-The best part? &lt;strong&gt;&lt;em&gt;All this is done offline&lt;/em&gt;&lt;/strong&gt;. The attack is very hard to detect, because there are no explotis being launched, no malware being placed on any target system, and no bruteforcing being done against
+&lt;p&gt;Cool, so how does this help us? Well, the accounts created for services are usually over permissioned and part of the Domain/Enterprise Admin’s group, as well as have passwords that are set to not expire, usually created
+by a human (which as we know are horrible at creating truly random passwords). This means if we request TGS tickets and request they are encrypted with RC4 for a specific (or all available) SPN’s, we can then attempt to open the tickets
+by computing various NT Hashes and trying to open the ticket. If we are succesful, it means we have the correct NT Hash, which means we would have found the correct password for the target service account!
+The best part? &lt;strong&gt;&lt;em&gt;All this is done offline&lt;/em&gt;&lt;/strong&gt;. The attack is very hard to detect, because there are no exploits being launched, no malware being placed on any system, and no bruteforcing being done against
 AD. Although there &lt;a href=&quot;https://adsecurity.org/?p=3513&quot;&gt;are ways to detect the attack&lt;/a&gt;, we felt fairly confident the logs were not being monitored to this degree.&lt;/p&gt;
 
 &lt;p&gt;We used Impacket’s GetSPNs.py to request a list of all suiteable SPN’s for cracking using one of the cracked accounts, and got to work. A short time later, there was a hit. Sure enough, after checking the account’s
@@ -170,7 +170,7 @@ majority of cases, the perimeter is rarely breached with CVE’s (although one s
 endpoints, I prefer to attack the weakest link in the security chain: Humans. Wether it is through social engineering, phishing, or password attacks, humans tend to be the easiest to exploit.&lt;/p&gt;
 
 &lt;p&gt;A few weeks ago I was on an external engagement against a fairly large company. Initial recogniance revealed many interesting subdomains, however most were placed behind an authenticated gateway, meaning I could
-not reach them without valid credentials. This severely reduced my attack surface which was slightly annoying. Initially, the only two exposed servers I could access was a fairly new exchange server with no exploitable
+not reach them without valid domain credentials. This severely reduced my attack surface which was slightly annoying. Initially, the only two exposed servers I could access was a fairly new exchange server with no externally exploitable
 vulnerabilities and a 2013 Microsoft Lync server. One possible attack here would be to come up with a list of probable usernames using the email convention from my point of contact and perform a password spray 
 against the Lync server, however first i’d need a list of employees to try.&lt;/p&gt;
 
@@ -182,25 +182,23 @@ using common email conventions such as firstname.lastname, lastname.f, firstname
 comprehensive list of posible usernames we can then attack.&lt;/p&gt;
 
 &lt;p&gt;I ran the tool against the company which identified roughly 700 users. Awesome! Although there were bound to be some invalid or old names in there, I figured most would be valid, and felt pretty good
-about my chances of finding a user with Password1, Winter2018 or something of the sort. Rather than attempting all different convetions (over 2000 usernames), I decided to use the convention from emails found
+about my chances of finding a user with Password1, Winter2018 or something of the sort. Rather than attempting all different conventions (over 2000 usernames), I decided to use the convention from emails found
 during recon.&lt;/p&gt;
 
-&lt;p&gt;The last piece needed for my attack was the domain the users belonged to. This is where Lyncsmash comes in. &lt;a href=&quot;https://github.com/nyxgeek/lyncsmash&quot;&gt;LyncSmash&lt;/a&gt; developed by nyxgeek is a collection of tools for attacking self hosted
-Microsoft Lync installations. If you’d like to read the details behind how it works I strongly suggest you read &lt;a href=&quot;https://www.trustedsec.com/2017/08/attacking-self-hosted-skype-businessmicrosoft-lync-installations/&quot;&gt;this&lt;/a&gt; blog post.
-Self hosted Lync installations suffer from multiple information disclosure flaws. First, many folders are protected with NTLM over http authentication. This means if we send an authentication request with null 
-credentials, we will receive a &lt;a href=&quot;https://blog.gdssecurity.com/labs/2014/2/12/http-ntlm-information-disclosure.html&quot;&gt;NTLMSSP&lt;/a&gt; message, which leaks Netbios, DNS and host information.&lt;/p&gt;
+&lt;p&gt;The last piece needed for my attack was the name of the domain the users belonged to. By default, many directories in both Exchange and Lync are protected using NTLM over http. Due to the way NTLM authentication works,
+Sending a  Type 1 message with null data results in a response which leaks internal server data, such as product numbers and domain information. I wrote a small script to extract this information which can be found &lt;a href=&quot;https://github.com/Shad-0/Tools&quot;&gt;here&lt;/a&gt;&lt;/p&gt;
 
-&lt;p&gt;It is worth noting here that this is not a vulnerability, but rather a flaw design in the protocol so this will likely never be fixed. I used the http-ntlm-info nmap script to enumerate the server, 
-using the /abs/ directory as the authentication target:&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/nmap2.png&quot; alt=&quot;NTLMSSP data extracted from /ews/ in my lab&quot; /&gt;&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/nmap.png&quot; alt=&quot;Nmap script results against /abs/&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;Great! now that we have a list of plausible usernames and the name of the domain they are likely to authenticate to. We now need a way to differentiate valid from invalid usernames which we can then attack.
+This is where Lyncsmash comes in. &lt;a href=&quot;https://github.com/nyxgeek/lyncsmash&quot;&gt;LyncSmash&lt;/a&gt;, developed by nyxgeek, is a tool for attacking self hosted Microsoft Lync installations. If you’d like to read the details 
+behind how it works I strongly suggest you read &lt;a href=&quot;https://www.trustedsec.com/2017/08/attacking-self-hosted-skype-businessmicrosoft-lync-installations/&quot;&gt;this&lt;/a&gt; blog post.
+Self hosted Lync installations suffer from multiple information disclosure flaws. First, many folders are protected with NTLM over http authentication, allowing us to obtain domain information. 
+the second flaw is a username enumeration flaw. Like Exchange, attempting to login with a valid username will return a response much quicker than an invalid username. 
+The second flaw was reported to Microsoft, who do not aknowledge it as a vulnerability, meaning it is likely never going to be patched.&lt;/p&gt;
 
-&lt;p&gt;Great! I now had the domain information. The second information disclosure flaw is a username enumeration flaw. Attempting to login with a valid username will return a response much quicker than an invalid 
-username. This flaw was reported to Microsoft, who do not aknowledge it as a vulnerability, meaning it is likely never going to be patched.&lt;/p&gt;
-
-&lt;p&gt;At this point I had everything needed for my attack. I used the list produced by LinkedIn2username that conformed to the email convention for the target, and sprayed two passwords across all accounts. 
-If the password lockout threshold of the target is not known, I strongly recommend keeping the spray at 1/2 passwords per day. Otherwise you risk locking out the valid accounts, which will not only be extremely
-noisy but can also have a significant business impact for the target. You’ve been warned.&lt;/p&gt;
+&lt;p&gt;I used the list produced by LinkedIn2username, and sprayed two passwords across all accounts. If the password lockout threshold of the target is not known, I strongly recommend keeping the spray at 1/2 passwords
+per day. Otherwise you risk locking out valid accounts, which will not only be extremely, noisy but can also have a significant business impact for the target. You’ve been warned.&lt;/p&gt;
 
 &lt;p&gt;Invalid usernames with the incorrect credentials will produce the following output:&lt;/p&gt;
 
@@ -215,7 +213,7 @@ noisy but can also have a significant business impact for the target. You’ve b
 &lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/modded.png&quot; alt=&quot;So close but yet so far...&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;After logging I was greeted with a lovely 2FA input field asking me for a Google authenticator token. hmmm. Game over? Not yet! Remember that exchange server that was exposed?
-I took my credentials there and what do you know, no MFA! All of the accounts enumerated were a goldmine. One belonged to someone in a manager type role, who appeared to get automated emails every time
+I took my credentials there and what do you know, no 2FA! All of the accounts enumerated were a goldmine. One belonged to someone in a manager type role, who appeared to get automated emails every time
 a new employee was hired. In those emails were details about the employees start date, instructions to set up their Google 2FA aaand…&lt;/p&gt;
 
 &lt;p&gt;&lt;img src=&quot;http://localhost:4000/images/Lync/email.png&quot; alt=&quot;Yep...temporary plaintext credentials&quot; /&gt;&lt;/p&gt;

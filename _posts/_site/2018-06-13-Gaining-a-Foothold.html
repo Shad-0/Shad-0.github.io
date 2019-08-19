@@ -1,0 +1,60 @@
+<p>In this blog I am going to cover some little known tools that have proven extremely valuable when breaching the perimeter during external engagements. I think most penetration testers will agree that in the 
+majority of cases, the perimeter is rarely breached with CVE’s (although one still finds the odd lone forgotten server at some obsuce subdomain). Instead of attacking the technologies at the different
+endpoints, I prefer to attack the weakest link in the security chain: Humans. Wether it is through social engineering, phishing, or password attacks, humans tend to be the easiest to exploit.</p>
+
+<p>A few weeks ago I was on an external engagement against a fairly large company. Initial recogniance revealed many interesting subdomains, however most were placed behind an authenticated gateway, meaning I could
+not reach them without valid domain credentials. This severely reduced my attack surface which was slightly annoying. Initially, the only two exposed servers I could access was a fairly new exchange server with no externally exploitable
+vulnerabilities and a 2013 Microsoft Lync server. One possible attack here would be to come up with a list of probable usernames using the email convention from my point of contact and perform a password spray 
+against the Lync server, however first i’d need a list of employees to try.</p>
+
+<p><img src="http://localhost:4000/images/Lync/lync.png" alt="Always a welcome sight on externals" /></p>
+
+<p>A few months ago, a colleague of mine released a tool called <a href="https://gitlab.com/initstring/linkedin2username/">Linkedin2username</a>. The tool is a scraper that will take in a company name, and login 
+parameters. It will then log into LinkedIn and do a search for all employees of said company, which it then saves locally. Finally, it will grab the first and last name and compose a  list of probable usernames 
+using common email conventions such as firstname.lastname, lastname.f, firstname.l and so on. This is incredibly useful when used in conjuction with username enumeration flaws, as it provides a very 
+comprehensive list of posible usernames we can then attack.</p>
+
+<p>I ran the tool against the company which identified roughly 700 users. Awesome! Although there were bound to be some invalid or old names in there, I figured most would be valid, and felt pretty good
+about my chances of finding a user with Password1, Winter2018 or something of the sort. Rather than attempting all different conventions (over 2000 usernames), I decided to use the convention from emails found
+during recon.</p>
+
+<p>The last piece needed for my attack was the name of the domain the users belonged to. By default, many directories in both Exchange and Lync are protected using NTLM over http. Due to the way NTLM authentication works,
+Sending a  Type 1 message with null data results in a response which leaks internal server data, such as product numbers and domain information. I wrote a small script to extract this information which can be found <a href="https://github.com/Shad-0/Tools">here</a></p>
+
+<p><img src="http://localhost:4000/images/Lync/nmap2.png" alt="NTLMSSP data extracted from /ews/ in my lab" /></p>
+
+<p>Great! now that we have a list of plausible usernames and the name of the domain they are likely to authenticate to. We now need a way to differentiate valid from invalid usernames which we can then attack.
+This is where Lyncsmash comes in. <a href="https://github.com/nyxgeek/lyncsmash">LyncSmash</a>, developed by nyxgeek, is a tool for attacking self hosted Microsoft Lync installations. If you’d like to read the details 
+behind how it works I strongly suggest you read <a href="https://www.trustedsec.com/2017/08/attacking-self-hosted-skype-businessmicrosoft-lync-installations/">this</a> blog post.
+Self hosted Lync installations suffer from multiple information disclosure flaws. First, many folders are protected with NTLM over http authentication, allowing us to obtain domain information. 
+the second flaw is a username enumeration flaw. Like Exchange, attempting to login with a valid username will return a response much quicker than an invalid username. 
+The second flaw was reported to Microsoft, who do not aknowledge it as a vulnerability, meaning it is likely never going to be patched.</p>
+
+<p>I used the list produced by LinkedIn2username, and sprayed two passwords across all accounts. If the password lockout threshold of the target is not known, I strongly recommend keeping the spray at 1/2 passwords
+per day. Otherwise you risk locking out valid accounts, which will not only be extremely, noisy but can also have a significant business impact for the target. You’ve been warned.</p>
+
+<p>Invalid usernames with the incorrect credentials will produce the following output:</p>
+
+<p><img src="http://localhost:4000/images/Lync/invalid.png" alt="No succesfull logins here!" /></p>
+
+<p>Where as a correct login will produce the following result:</p>
+
+<p><img src="http://localhost:4000/images/Lync/valid.png" alt="And we score!!" /></p>
+
+<p>Booya! valid creds! I let the script continue and ended up with 4 valid accounts. Great, now to log in to the portal….</p>
+
+<p><img src="http://localhost:4000/images/Lync/modded.png" alt="So close but yet so far..." /></p>
+
+<p>After logging I was greeted with a lovely 2FA input field asking me for a Google authenticator token. hmmm. Game over? Not yet! Remember that exchange server that was exposed?
+I took my credentials there and what do you know, no 2FA! All of the accounts enumerated were a goldmine. One belonged to someone in a manager type role, who appeared to get automated emails every time
+a new employee was hired. In those emails were details about the employees start date, instructions to set up their Google 2FA aaand…</p>
+
+<p><img src="http://localhost:4000/images/Lync/email.png" alt="Yep...temporary plaintext credentials" /></p>
+
+<p>I picked a few accounts that had not started yet and therefore were not set up and proceeded to hijack their 2FA set up. I was succesfull in registering my device, and was able to use a few of the newly 
+hijacked accounts to access the companies intranet and external resources. From here it was simply a matter of more enumeration until I was able to VPN into their internal network. Game over.</p>
+
+<p>I hope the above post highlights the power of these two tools when used together, and how dangerous a simple information disclosure flaw can be to an organization under the right conditions.</p>
+
+<p>Thanks for reading!</p>
+

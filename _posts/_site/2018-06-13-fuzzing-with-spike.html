@@ -6,11 +6,10 @@ to exploit development, starting with a basic vanilla stack overflow (and a few 
 This is not a beginner friendly tutorial - you should have at least a basic grasp of memory layouts (and a very basic 
 grasp of C woudnt hurt!). We are going to be focusing on Intel x86 processors, with a Windows operating system (touching
 on linux at some point…)
-If you havent already, i strongly recommend reading Aleph One’s famous Smashing the stack for fun and profit 
-(http://www-inst.eecs.berkeley.edu/~cs161/fa08/papers/stack_smashing.pdf)</p>
+If you havent already, i strongly recommend reading Aleph One’s famous <a href="http://www-inst.eecs.berkeley.edu/~cs161/fa08/papers/stack_smashing.pdf">Smashing the Stack for Fun and Profit</a></p>
 
-<p>With that out of the way, lets begin! Today we are going to be ‘discovering’ a vulnerability and writing an exploit
-for Easy File Sharing Webserver 7.2. I chose this software because 1) it is a simple remote unauthenticated example
+<p>With that out of the way, lets begin! Today we are going to be ‘discovering’ a vulnerability and using the PoC as a basis for writing an exploit
+for Easy File Sharing Webserver 7.2 down the road. I chose this software because 1) it is a simple remote unauthenticated example
 of a stack overflow and 2) there are a few different ways we can hit this target. I did NOT discover this vulnerability, 
 but we are going to approach it from an 0day angle and write a fuzzer to find it. This will be an overly simplistic approach to fuzzing and 0day discovery but it
 should illustrate the basic steps you need to go through.</p>
@@ -31,11 +30,11 @@ fields, or any user supplied/controlled data passed to the application.</p>
 <p><code class="highlighter-rouge">POST /sendmail.ghp HTTP/1.1</code><br />
 <code class="highlighter-rouge">Email=test@crash.com&amp;getPassword=Get+Password</code></p>
 
-<p>The <code class="highlighter-rouge">Email</code> and <code class="highlighter-rouge">getPassword</code> parameters look promising, so lets write a tempalte to fuzz these. Fuzzing is the process
+<p>The <code class="highlighter-rouge">Email</code> and <code class="highlighter-rouge">getPassword</code> parameters look promising, so lets write a template to fuzz these. Fuzzing is the process
 by which we purposely send malformed requests of different input and study how the applciation responds. 
 The fuzzer we are going to use today is the Spike fuzzer. Spike is a great tool which allows us to create templates 
 based on the sort of data we are looking to send. We can then send both TCP or UDP packets containing the malformed data,
-depending on what we are fuzzing. In this case, we are going to send a wide range od strings into the fields above.</p>
+depending on what we are fuzzing. In this case, we are going to send a wide range of strings into the fields above.</p>
 
 <p>The tempalte we will use will look like the one below:</p>
 
@@ -48,8 +47,7 @@ depending on what we are fuzzing. In this case, we are going to send a wide rang
 </code></pre></div></div>
 <p>Copy paste the above template and save it as EFS.spk. To explain:</p>
 
-<p>The first line, <code class="highlighter-rouge">s_string()</code> sends data of type string that is static. In the above example,, we are sending a POST 
-request to sendmail.ghp.
+<p>The first line, <code class="highlighter-rouge">s_string()</code> sends data of type string that is static. In the above example, we are sending a POST request to sendmail.ghp.
 If we however wanted to fuzz the POST parameter, or the /sendmail.ghp, we would use the s_string_variable() definition.
 This tells spike which variables we would like to fuzz, and it is here where all the malformed data will be sent.</p>
 
@@ -62,24 +60,24 @@ The command’s format is the following:</p>
 <p><code class="highlighter-rouge">generic_send_tcp 192.168.56.101 80 EFS.spk 0 0</code></p>
 
 <p>While most of the parameters above should be self explanatory, the last two tell spike which variable and which test
-to start from. In this case we want spike to test all the variables in the tempalte using all the payloads, so we’ll
+to start from. In this case we want spike to test all the variables in the template using all the payloads, so we’ll
 start at 0 for both.</p>
 
-<p>On your windows VM, start the Easy File Web Server, and launch Immunity. Attach the process by going to
+<p>On your Windows VM, start the Easy File Web Server, and launch Immunity. Attach the process by going to
 file &gt; Attach &gt; fsws &gt; click Attach. You will then need to click the play button above twice to resume program
 execution.</p>
 
 <p>We will also use wireshark to monitor which payloads are sent to the windows machine. With wireshark running,
 it is now time to fuzz the application. Open a separate terminal and launch the fuzzer. We notice that almost
 immediately the application crashes! This looks promising. We stop Spike and look in wireshark to determine which payload
-crashed the application. we see the following:</p>
+crashed the application. We see the following:</p>
 
 <p><img src="http://localhost:4000/images/Fuzz/Wireshark-fuzz.png" alt="Wireshark payloads" /></p>
 
 <p>If we look at Spike, it tells us the second request sent a payload of 5004 bytes. Lets explore this crash a bit more and see
 if it is indeed exploitable. Remember that not every crash is exploitable, for a wide variety of reasons.</p>
 
-<p>We will use the following python script as a following baseline for our exploit:</p>
+<p>We will use the following python script as a baseline for our exploit:</p>
 
 <div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/usr/bin/python</span>
 

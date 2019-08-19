@@ -5,8 +5,8 @@ categories: Internal
 tags: Stealth, Evasion, Internal
 ---
 
-When I first began learning about IT security, AV evasion meant encoding signatures, and ```' OR '1' = '1``` was enough to get into most web applications. 14 years later, security has evolved into a much different
-landscape. While the above techniques certainly still work in some cases, today's networks are much more complex. AV's now have sandboxes and emulators, and web applications are protected on the 7th layer.
+When I first began my dive into the world of IT security, AV evasion meant encoding signatures, and ```' OR '1' = '1``` was enough to get into most web applications. 15 years later, security has evolved into a 
+much different landscape. While the above techniques certainly still work in some cases, today's networks are much more complex. AV's now have sandboxes and emulators, and web applications are protected at the applicaton layer.
 The last thing a consultant wants during an engagement is to be caught because one of their payloads tripped a defense mechanism.
 
 A few months ago I was part of a purple team engagement, during which a client hired us to both test their internal network security as well as their newly hired SOC's ability to catch malicious activity.
@@ -15,7 +15,7 @@ approach.
 
 ### 1. Getting credentials: Responder? Maybe not.
 After a quick kickoff meeting we were off. Normally, in a regular internal penetration test this is where I would fire up wireshark and start listening for NBT-NS and LLMNR broadcasts. If found, fire up Responder,
-collect some Net-NTLM hashes, throw hashcat at them and in some cases, r00t dance. However, we figured this would likely get us caught. To explain why, lets go back to how and why Responder works. I am not going to go
+collect some Net-NTLM hashes, throw hashcat at them and in some cases, r00t dance. This approach however would likely get us caught. To explain why, lets go back to how and why Responder works. I am not going to go
 into the details of Responder and NBT-NS/LLMNR poisoning as the internet is filled with explanations of the attack. Suffice to say that when DNS fails to resolve a hostname for whatever reason 
 (user "fat fingers" the name, DNS UDP packet - yes, [UDP](https://www.ietf.org/rfc/rfc1035.txt) - gets dropped, or some other reason) it turns back to Link Layer Multicast Name Resolution and NetBios name
 service to resolve the name. It does this by sending a broadcast literally asking who the host is. 
@@ -38,7 +38,7 @@ Enumerating the network further we found the intranet
 page. A quick look revealed it was running WordPress, which meant if we could just get access to an account we could probably get code execution. Again, a vulnerability
 scanner like WPScan would have been great here, but as stealth was important we opted for a manual approach. Examination revealed a fully patched installation, and looking through some of the source 
 we saw references to a security plugin which made things a bit harder. We had two options. Either find an 0day in a plugin/Wordpress, which in a time boxed engagement is basically a no go, or compromise a user account.
-Wordpress has a very handy feature that allows for username enumeration by appending ```/?author=1``` to the url. We tested this in the browser and succesfully got the username of the first account.
+Wordpress has a very handy feature that allows for username enumeration by appending ```/?author=number``` to the url. We tested this in the browser and succesfully got the username of the first account.
 We then scripted the attack, being mindful of pausing a few minutes between requests, and tried enumerating the first 100 accounts. This yielded 76 different user accounts. We then tried a password spray with
 good ol' ```Password1``` (you'd be surprised how many times that works) and success! 4 accounts went down, one of which was an administrator.
 
@@ -91,8 +91,9 @@ hour.
 
 ### Pwning the Domain: Red team 1, Blue team 0
 
-With plenty of hashes, the next step was to crack them and begin moving laterally. Hashcat cracked roughly 20 accounts in a relatively short period of time. Checking these account's permissions we discovered
-that none had elevated privileges. No matter, with domain credentials its usually only a matter of time before the domain goes down. Remembering the SOC's watchfull eyes over us, we kept our recognizance
+With plenty of hashes, the next step was to crack them and begin moving laterally. Note we could have also relayed the hashes, but as we were opting to be as quiet as possible, we decided to crack them offline instead.
+Hashcat cracked roughly 20 accounts in a relatively short period of time. Checking these account's permissions we discovered
+that none had elevated privileges. No matter, with domain credentials its usually only a matter of time before the domain goes down. Remembering the SOC's watchfull eyes over us, we kept our reconnaissance
 to a minimum to prevent tripping any alert from monitoring systems. Instead, we opted for what are considered easy kills, which meant Kerberoasting.
 
 Kerberoasting is the name of the attack given by [Tim Medina in 2014](https://files.sans.org/summit/hackfest2014/PDFs/Kicking%20the%20Guard%20Dog%20of%20Hades%20-%20Attacking%20Microsoft%20Kerberos%20%20-%20Tim%20Medin(1).pdf) to attacking Microsoft Windows Kerberos authentication. 
@@ -101,23 +102,22 @@ While a full description is out of scope, The following graphic taken from [Micr
 ![Kerberos]({{ "/images/responder/kerberos.gif" | absolute_url }})
 
 To summarize the above, at logon, the client contacts the Key Distribution Center (KDC) and requests a Ticket Ticket Grating Ticket (TGT) from the KDC. The KDC valdiates the users information, such as 
-permissions and group memberships, and if they check out it will issue a TGT. If the user then wishes to access a service, it will need to supply the TGT as well as the target's service principal
-name (SPN). A SPN [is the name by which a Kerberos client uniquely identifies an instance of a service for a given Kerberos target computer](https://social.technet.microsoft.com/wiki/contents/articles/717.service-principal-names-spns-setspn-syntax-setspn-exe.aspx)
-After verifying the data in the TGT (which only the KDC can read). the KDC will issue a TGS back to the client which *is signed with the target SPN's NTLM hash*. The TGS will then be presented to the service, 
+permissions and group memberships, and if they check out it will return a TGT. If the user then wishes to access a service, it will need to supply the TGT as well as the target's service principal
+name (SPN). A SPN [is the name by which a Kerberos client uniquely identifies an instance of a service for a given Kerberos target computer.](https://social.technet.microsoft.com/wiki/contents/articles/717.service-principal-names-spns-setspn-syntax-setspn-exe.aspx)
+After verifying the data in the TGT (which only the KDC can read) the KDC will issue a TGS back to the client which *is signed with the target SPN's NT hash*. The TGS will then be presented to the service, 
 which will ultimately decide whether or not to provide access.
 
 We are interested in step 3/4. In modern systems, Kerberos uses AES encryption to encrypt the TGS ticket. However, this was not introduced until [Windows Vista/ and Windows 2008](https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-vista/cc749438(v=ws.10)). 
-Since Active Directory's introduction in Windows 2000, Windows has used RC4_HMAC symmetric encryption which uses the target SPN's NT (or NTLM as some of you may know it)
-hash as the encryption/decryption key! Even though AES is the default, RC4 is still found due to
-compatability requriements (since some services/systems do not yet support AES). If we look at the graffic above, any user can request a TGT from the KDC with valid domain credentials.
+Since Active Directory's introduction in Windows 2000, Windows has used RC4_HMAC symmetric encryption which uses the target SPN's NT hash as the encryption/decryption key! Even though AES is the default, RC4 is 
+still found due to compatability requriements (since some services/systems do not yet support AES). If we look at the graphic above, any user can request a TGT from the KDC with valid domain credentials.
 These do not have to belong to any privileged group - Kerberos lets the target service/system decide whether or not to grant permission to the user to use the service - which means any low privilege account can
 get as many TGS tickets for different SPN's as we want! There are certain restrictions in regards to which SPN's are better for cracking and why, and if you'd like to know more I strongly recommend going [here](https://files.sans.org/summit/hackfest2014/PDFs/Kicking%20the%20Guard%20Dog%20of%20Hades%20-%20Attacking%20Microsoft%20Kerberos%20%20-%20Tim%20Medin(1).pdf)
 and [here](https://adsecurity.org/?p=2293). 
 
-Cool, so how does this help us? Well, the accounts created for services are usually over permissioned and part of the Domain Admin's group, as well as have passwords that are set to not expire, usually created
-by a human (which as we know are horrible at creating truly random passwords). This means if we request TGS tickets encrypted with RC4 for a specific (or all available) SPN's, we can then attempt to open the tickets
-by computing various NTHashes and trying to open the ticket. If we are succesful, it means we have the correct NTHash, which means we would have found the correct password for the target service account!
-The best part? ***All this is done offline***. The attack is very hard to detect, because there are no explotis being launched, no malware being placed on any target system, and no bruteforcing being done against
+Cool, so how does this help us? Well, the accounts created for services are usually over permissioned and part of the Domain/Enterprise Admin's group, as well as have passwords that are set to not expire, usually created
+by a human (which as we know are horrible at creating truly random passwords). This means if we request TGS tickets and request they are encrypted with RC4 for a specific (or all available) SPN's, we can then attempt to open the tickets
+by computing various NT Hashes and trying to open the ticket. If we are succesful, it means we have the correct NT Hash, which means we would have found the correct password for the target service account!
+The best part? ***All this is done offline***. The attack is very hard to detect, because there are no exploits being launched, no malware being placed on any system, and no bruteforcing being done against
 AD. Although there [are ways to detect the attack](https://adsecurity.org/?p=3513), we felt fairly confident the logs were not being monitored to this degree.
 
 We used Impacket's GetSPNs.py to request a list of all suiteable SPN's for cracking using one of the cracked accounts, and got to work. A short time later, there was a hit. Sure enough, after checking the account's
